@@ -2,12 +2,12 @@ use std::mem::{Discriminant, MaybeUninit};
 
 use crate::EnumTable;
 
-pub struct EnumTableBuilder<T, V, const N: usize> {
+pub struct EnumTableBuilder<K, V, const N: usize> {
     idx: usize,
-    table: [MaybeUninit<(Discriminant<T>, V)>; N],
+    table: [MaybeUninit<(Discriminant<K>, V)>; N],
 }
 
-impl<T, V, const N: usize> EnumTableBuilder<T, V, N> {
+impl<K, V, const N: usize> EnumTableBuilder<K, V, N> {
     pub const fn new() -> Self {
         Self {
             idx: 0,
@@ -15,28 +15,28 @@ impl<T, V, const N: usize> EnumTableBuilder<T, V, N> {
         }
     }
 
-    pub const fn to_cast(&self, i: usize) -> T {
+    pub const fn to_cast(&self, i: usize) -> K {
         crate::to_cast(i)
     }
 
-    pub const fn push(&mut self, variant: &T, value: V) {
+    pub const fn push(&mut self, variant: &K, value: V) {
         self.table[self.idx] = MaybeUninit::new((core::mem::discriminant(variant), value));
         self.idx += 1;
     }
 
-    pub const fn build(self) -> [(Discriminant<T>, V); N] {
+    pub const fn build(self) -> [(Discriminant<K>, V); N] {
         if self.idx != N {
             panic!("EnumTableBuilder: not enough elements");
         }
         unsafe { MaybeUninit::array_assume_init(self.table) }
     }
 
-    pub const fn build_to(self) -> EnumTable<T, V, N> {
+    pub const fn build_to(self) -> EnumTable<K, V, N> {
         EnumTable::new(self.build())
     }
 }
 
-impl<T, V, const N: usize> Default for EnumTableBuilder<T, V, N> {
+impl<K, V, const N: usize> Default for EnumTableBuilder<K, V, N> {
     fn default() -> Self {
         Self::new()
     }
