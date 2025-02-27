@@ -1,7 +1,6 @@
 #![allow(incomplete_features)]
 #![feature(variant_count)]
 #![feature(generic_const_exprs)]
-#![feature(maybe_uninit_array_assume_init)]
 
 pub mod builder;
 mod impls;

@@ -28,7 +28,7 @@ impl<K, V, const N: usize> EnumTableBuilder<K, V, N> {
         if self.idx != N {
             panic!("EnumTableBuilder: not enough elements");
         }
-        unsafe { MaybeUninit::array_assume_init(self.table) }
+        unsafe { core::mem::transmute_copy(&self.table) }
     }
 
     pub const fn build_to(self) -> EnumTable<K, V, N> {
