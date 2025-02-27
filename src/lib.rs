@@ -2,6 +2,7 @@
 #![feature(maybe_uninit_array_assume_init)]
 
 pub mod builder;
+mod impls;
 mod macros;
 
 // NOTE: I get a compiler error when initializing an array when doing new,
@@ -47,7 +48,7 @@ const fn to_usize<T>(t: T) -> usize {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct EnumTable<K, V, const N: usize> {
     table: [(Discriminant<K>, V); N],
 }
