@@ -71,7 +71,7 @@ fn main() {
 
 ### More Method
 
-more info: [doc.rs](https://docs.rs/enum-table/struct.EnumTable.html)
+more info: [doc.rs](https://docs.rs/enum-table/latest/enum_table/struct.EnumTable.html)
 
 ## License
 
