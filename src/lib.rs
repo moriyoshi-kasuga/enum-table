@@ -1,4 +1,8 @@
 #![feature(variant_count)]
+#![feature(maybe_uninit_array_assume_init)]
+
+pub mod builder;
+mod macros;
 
 // NOTE: I get a compiler error when initializing an array when doing new,
 // probably due to an error in reasoning about the length of the generic const expr argument.
@@ -6,6 +10,7 @@
 // #![feature(generic_const_exprs)]
 
 use core::mem::Discriminant;
+use dev_macros::*;
 
 /// # Safety
 /// This function is unsafe because it uses [`core::mem::variant_count`]
@@ -62,13 +67,13 @@ impl<T, V, const N: usize> EnumTable<T, V, N> {
     }
 
     pub const fn get(&self, variant: &T) -> &V {
-        macros::use_variant_value!(self, variant, i, {
+        use_variant_value!(self, variant, i, {
             return &self.table[i].1;
         });
     }
 
     pub const fn get_mut(&mut self, variant: &T) -> &mut V {
-        macros::use_variant_value!(self, variant, i, {
+        use_variant_value!(self, variant, i, {
             return &mut self.table[i].1;
         });
     }
@@ -77,7 +82,7 @@ impl<T, V, const N: usize> EnumTable<T, V, N> {
     /// So, we use forget to avoid calling drop.
     /// Careful, not to call drop on the old value.
     pub const fn const_set(&mut self, variant: &T, value: V) {
-        macros::use_variant_value!(self, variant, i, {
+        use_variant_value!(self, variant, i, {
             let old = core::mem::replace(&mut self.table[i].1, value);
             std::mem::forget(old);
             return;
@@ -85,14 +90,14 @@ impl<T, V, const N: usize> EnumTable<T, V, N> {
     }
 
     pub fn set(&mut self, variant: &T, value: V) {
-        macros::use_variant_value!(self, variant, i, {
+        use_variant_value!(self, variant, i, {
             self.table[i].1 = value;
             return;
         });
     }
 }
 
-mod macros {
+mod dev_macros {
     macro_rules! use_variant_value {
         ($self:ident, $variant:ident, $i:ident,{$($tt:tt)+}) => {
             let discriminant = core::mem::discriminant($variant);
