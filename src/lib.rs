@@ -1,26 +1,14 @@
+#![allow(incomplete_features)]
 #![feature(variant_count)]
+#![feature(generic_const_exprs)]
 #![feature(maybe_uninit_array_assume_init)]
 
 pub mod builder;
 mod impls;
 mod macros;
 
-// NOTE: I get a compiler error when initializing an array when doing new,
-// probably due to an error in reasoning about the length of the generic const expr argument.
-// If cured, remove variant_count and use generic const expr
-// #![feature(generic_const_exprs)]
-
 use core::mem::Discriminant;
 use dev_macros::*;
-
-/// # Safety
-/// This function is unsafe because it uses [`core::mem::variant_count`]
-/// it is nightly only. Use with carefully.
-#[inline(always)]
-#[must_use]
-pub const unsafe fn variant_count<K>() -> usize {
-    core::mem::variant_count::<K>()
-}
 
 #[inline(always)]
 const fn cast<T, U>(t: T) -> U {
@@ -49,7 +37,7 @@ const fn to_usize<T>(t: T) -> usize {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct EnumTable<K, V, const N: usize> {
+pub struct EnumTable<K, V, const N: usize = { core::mem::variant_count::<K>() }> {
     table: [(Discriminant<K>, V); N],
 }
 
@@ -58,6 +46,8 @@ impl<K, V, const N: usize> EnumTable<K, V, N> {
         Self { table }
     }
 
+    /// Create a new EnumTable with a function that takes a variant and returns a value.
+    /// If you want to define it in const, use [`crate::et`] macro
     pub fn new_with_fn(mut f: impl FnMut(K) -> V) -> Self {
         let table = core::array::from_fn(|i| {
             let k: K = to_cast(i);
@@ -95,6 +85,14 @@ impl<K, V, const N: usize> EnumTable<K, V, N> {
             self.table[i].1 = value;
             return;
         });
+    }
+
+    pub const fn len(&self) -> usize {
+        N
+    }
+
+    pub const fn is_empty(&self) -> bool {
+        false
     }
 }
 

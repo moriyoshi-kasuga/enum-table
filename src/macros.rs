@@ -1,11 +1,11 @@
 #[macro_export]
 macro_rules! et {
-    ($variant:ty, $value:ty, $count:expr, |$variable:ident| $($tt:tt)*) => {
+    ($variant:ty, $value:ty, |$variable:ident| $($tt:tt)*) => {
         {
-            let mut builder = $crate::builder::EnumTableBuilder::<$variant, $value, { $count }>::new();
+            let mut builder = $crate::builder::EnumTableBuilder::<$variant, $value>::new();
 
             let mut i = 0;
-            while i < $count {
+            while i < builder.len() {
                 let $variable = builder.to_cast(i);
                 builder.push(
                     &$variable,
@@ -25,23 +25,17 @@ mod tests {
 
     #[test]
     fn et_macro() {
-        #[repr(u8)]
         enum Test {
             A,
             B,
             C,
         }
 
-        impl Test {
-            const COUNT: usize = unsafe { crate::variant_count::<Test>() };
-        }
-
-        const TABLE: EnumTable<Test, &'static str, { Test::COUNT }> =
-            et!(Test, &'static str, Test::COUNT, |t| match t {
-                Test::A => "A",
-                Test::B => "B",
-                Test::C => "C",
-            });
+        const TABLE: EnumTable<Test, &'static str> = et!(Test, &'static str, |t| match t {
+            Test::A => "A",
+            Test::B => "B",
+            Test::C => "C",
+        });
 
         assert_eq!(TABLE.get(&Test::A), &"A");
         assert_eq!(TABLE.get(&Test::B), &"B");

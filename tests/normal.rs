@@ -1,20 +1,15 @@
-use enum_table::{EnumTable, variant_count};
+use enum_table::EnumTable;
 
 #[derive(Debug, PartialEq, Eq)]
-#[repr(u8)]
 pub enum Test {
     A,
     B,
     C,
 }
 
-impl Test {
-    pub const COUNT: usize = unsafe { variant_count::<Test>() };
-}
-
 #[test]
 fn test() {
-    let mut table = EnumTable::<Test, &'static str, { Test::COUNT }>::new_with_fn(|t| match t {
+    let mut table = EnumTable::<Test, &'static str>::new_with_fn(|t| match t {
         Test::A => "A",
         Test::B => "B",
         Test::C => "C",

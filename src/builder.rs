@@ -2,7 +2,7 @@ use std::mem::{Discriminant, MaybeUninit};
 
 use crate::EnumTable;
 
-pub struct EnumTableBuilder<K, V, const N: usize> {
+pub struct EnumTableBuilder<K, V, const N: usize = { core::mem::variant_count::<K>() }> {
     idx: usize,
     table: [MaybeUninit<(Discriminant<K>, V)>; N],
 }
@@ -34,6 +34,14 @@ impl<K, V, const N: usize> EnumTableBuilder<K, V, N> {
     pub const fn build_to(self) -> EnumTable<K, V, N> {
         EnumTable::new(self.build())
     }
+
+    pub const fn len(&self) -> usize {
+        N
+    }
+
+    pub const fn is_empty(&self) -> bool {
+        false
+    }
 }
 
 impl<K, V, const N: usize> Default for EnumTableBuilder<K, V, N> {
@@ -48,22 +56,17 @@ mod tests {
 
     #[test]
     fn builder() {
-        #[repr(u8)]
         enum Test {
             A,
             B,
             C,
         }
 
-        impl Test {
-            const COUNT: usize = unsafe { crate::variant_count::<Test>() };
-        }
-
-        const TABLE: EnumTable<Test, &'static str, { Test::COUNT }> = {
-            let mut builder = EnumTableBuilder::<Test, &'static str, { Test::COUNT }>::new();
+        const TABLE: EnumTable<Test, &'static str> = {
+            let mut builder = EnumTableBuilder::<Test, &'static str>::new();
 
             let mut i = 0;
-            while i < Test::COUNT {
+            while i < builder.len() {
                 let t = builder.to_cast(i);
                 builder.push(
                     &t,
