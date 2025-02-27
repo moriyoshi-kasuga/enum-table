@@ -62,43 +62,51 @@ impl<T, V, const N: usize> EnumTable<T, V, N> {
     }
 
     pub const fn get(&self, variant: &T) -> &V {
-        let discriminant = core::mem::discriminant(variant);
-
-        let mut i = 0;
-        while i < self.table.len() {
-            if to_usize(self.table[i].0) == to_usize(discriminant) {
-                return &self.table[i].1;
-            }
-            i += 1;
-        }
-        panic!("Variant not found");
+        macros::use_variant_value!(self, variant, i, {
+            return &self.table[i].1;
+        });
     }
 
     pub const fn get_mut(&mut self, variant: &T) -> &mut V {
-        let discriminant = core::mem::discriminant(variant);
-
-        let mut i = 0;
-        while i < self.table.len() {
-            if to_usize(self.table[i].0) == to_usize(discriminant) {
-                return &mut self.table[i].1;
-            }
-            i += 1;
-        }
-        panic!("Variant not found");
+        macros::use_variant_value!(self, variant, i, {
+            return &mut self.table[i].1;
+        });
     }
 
-    pub const fn set(&mut self, variant: &T, value: V) {
-        let discriminant = core::mem::discriminant(variant);
-
-        let mut i = 0;
-        while i < self.table.len() {
-            if to_usize(self.table[i].0) == to_usize(discriminant) {
-                let old = core::mem::replace(&mut self.table[i].1, value);
-                std::mem::forget(old);
-                return;
-            }
-            i += 1;
-        }
-        panic!("Variant not found");
+    /// const function is not callable drop.
+    /// So, we use forget to avoid calling drop.
+    /// Careful, not to call drop on the old value.
+    pub const fn const_set(&mut self, variant: &T, value: V) {
+        macros::use_variant_value!(self, variant, i, {
+            let old = core::mem::replace(&mut self.table[i].1, value);
+            std::mem::forget(old);
+            return;
+        });
     }
+
+    pub fn set(&mut self, variant: &T, value: V) {
+        macros::use_variant_value!(self, variant, i, {
+            self.table[i].1 = value;
+            return;
+        });
+    }
+}
+
+mod macros {
+    macro_rules! use_variant_value {
+        ($self:ident, $variant:ident, $i:ident,{$($tt:tt)+}) => {
+            let discriminant = core::mem::discriminant($variant);
+
+            let mut $i = 0;
+            while $i < $self.table.len() {
+                if to_usize($self.table[$i].0) == to_usize(discriminant) {
+                    $($tt)+
+                }
+                $i += 1;
+            }
+            panic!("unreadable Variant not found");
+        };
+    }
+
+    pub(super) use use_variant_value;
 }
