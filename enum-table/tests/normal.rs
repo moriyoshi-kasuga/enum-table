@@ -1,15 +1,13 @@
+#![cfg(feature = "derive")]
+
 use enum_table::{EnumTable, Enumable};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Enumable)]
 #[repr(u8)]
 pub enum Test {
     A = 100,
     B,
     C,
-}
-
-impl Enumable for Test {
-    const VARIANTS: &'static [Self] = &[Test::A, Test::B, Test::C];
 }
 
 #[test]

@@ -1,3 +1,6 @@
+#[cfg(feature = "derive")]
+pub use enum_table_derive::Enumable;
+
 pub mod builder;
 mod impls;
 mod macros;
