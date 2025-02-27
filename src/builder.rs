@@ -1,22 +1,18 @@
 use std::mem::{Discriminant, MaybeUninit};
 
-use crate::EnumTable;
+use crate::{EnumTable, Enumable};
 
-pub struct EnumTableBuilder<K, V, const N: usize = { core::mem::variant_count::<K>() }> {
+pub struct EnumTableBuilder<K: Enumable, V, const N: usize> {
     idx: usize,
     table: [MaybeUninit<(Discriminant<K>, V)>; N],
 }
 
-impl<K, V, const N: usize> EnumTableBuilder<K, V, N> {
+impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
     pub const fn new() -> Self {
         Self {
             idx: 0,
             table: [const { MaybeUninit::uninit() }; N],
         }
-    }
-
-    pub const fn to_cast(&self, i: usize) -> K {
-        crate::to_cast(i)
     }
 
     pub const fn push(&mut self, variant: &K, value: V) {
@@ -44,7 +40,7 @@ impl<K, V, const N: usize> EnumTableBuilder<K, V, N> {
     }
 }
 
-impl<K, V, const N: usize> Default for EnumTableBuilder<K, V, N> {
+impl<K: Enumable, V, const N: usize> Default for EnumTableBuilder<K, V, N> {
     fn default() -> Self {
         Self::new()
     }
@@ -62,14 +58,18 @@ mod tests {
             C,
         }
 
-        const TABLE: EnumTable<Test, &'static str> = {
-            let mut builder = EnumTableBuilder::<Test, &'static str>::new();
+        impl Enumable for Test {
+            const VARIANTS: &'static [Self] = &[Test::A, Test::B, Test::C];
+        }
+
+        const TABLE: EnumTable<Test, &'static str, { Test::COUNT }> = {
+            let mut builder = EnumTableBuilder::<Test, &'static str, { Test::COUNT }>::new();
 
             let mut i = 0;
             while i < builder.len() {
-                let t = builder.to_cast(i);
+                let t = &Test::VARIANTS[i];
                 builder.push(
-                    &t,
+                    t,
                     match t {
                         Test::A => "A",
                         Test::B => "B",

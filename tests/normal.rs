@@ -1,15 +1,20 @@
-use enum_table::EnumTable;
+use enum_table::{EnumTable, Enumable};
 
 #[derive(Debug, PartialEq, Eq)]
+#[repr(u8)]
 pub enum Test {
-    A,
+    A = 100,
     B,
     C,
 }
 
+impl Enumable for Test {
+    const VARIANTS: &'static [Self] = &[Test::A, Test::B, Test::C];
+}
+
 #[test]
 fn test() {
-    let mut table = EnumTable::<Test, &'static str>::new_with_fn(|t| match t {
+    let mut table = EnumTable::<Test, &'static str, { Test::COUNT }>::new_with_fn(|t| match t {
         Test::A => "A",
         Test::B => "B",
         Test::C => "C",
