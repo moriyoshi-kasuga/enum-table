@@ -19,59 +19,54 @@
 
 ## Usage
 
-### Defining an Enum Table
-
-To use the `enum-table` library, you first define an enum and derive the `Enumable` trait. This trait is necessary for the enum to be used with the `EnumTable`.
+Below is a complete example demonstrating how to define an enum, create an `EnumTable`, and access values. This example is designed to be run as a single doctest.
 
 ```rust
 #![cfg(feature = "derive")]
 
-use enum_table::{Enumable};
+use enum_table::{EnumTable, Enumable};
 
-#[derive(Enumable)]
+// Define an enum and derive the Enumable trait
+// #[derive(Enumable)]
 enum Test {
     A,
     B,
     C,
 }
-```
 
-### Creating an Enum Table
+// Equivalent code not using `#[derive(enum_table::Enumable)]`
+impl Enumable for Test {
+  const VARIANTS: &[Self] = &[Self::A, Self::B, Self::C];
 
-You can create an `EnumTable` using the `new_with_fn` method or the `et!` macro.
+  // The COUNT constant is automatically implemented by default when VARIANTS is implemented.
+  // const COUNT: usize = Self::VARIANTS.len();
+}
 
-1. **Using `new_with_fn` Method**:
-   - This method allows you to create an `EnumTable` by providing a function that maps each enum variant to a value.
-   - Example:
+fn main() {
+    // Create an EnumTable using the new_with_fn method
+    let mut table = enum_table::EnumTable::<Test, &'static str, { Test::COUNT }>::new_with_fn(|t| match t {
+        Test::A => "A",
+        Test::B => "B",
+        Test::C => "C",
+    });
 
-     ```rust
-     let mut table = enum_table::EnumTable::<Test, &'static str, { Test::COUNT }>::new_with_fn(|t| match t {
-         Test::A => "A",
-         Test::B => "B",
-         Test::C => "C",
-     });
-     ```
+    // Access values associated with enum variants
+    assert_eq!(table.get(&Test::A), &"A");
+    assert_eq!(table.get(&Test::B), &"B");
+    assert_eq!(table.get(&Test::C), &"C");
 
-2. **Using `et!` Macro**:
-   - The `et!` macro is used to create a constant `EnumTable`.
-   - Example:
+    // Alternatively, create an EnumTable using the et! macro
+    const TABLE: enum_table::EnumTable<Test, &'static str, { Test::COUNT }> = enum_table::et!(Test, &'static str, Test::COUNT, |t| match t {
+        Test::A => "A",
+        Test::B => "B",
+        Test::C => "C",
+    });
 
-     ```rust
-     const TABLE: enum_table::EnumTable<Test, &'static str, { Test::COUNT }> = enum_table::et!(Test, &'static str, Test::COUNT, |t| match t {
-         Test::A => "A",
-         Test::B => "B",
-         Test::C => "C",
-     });
-     ```
-
-### Accessing Values
-
-Once the `EnumTable` is created, you can access the values associated with enum variants using the `get` method.
-
-```rust
-assert_eq!(TABLE.get(&Test::A), &"A");
-assert_eq!(TABLE.get(&Test::B), &"B");
-assert_eq!(TABLE.get(&Test::C), &"C");
+    // Access values using the constant table
+    assert_eq!(TABLE.get(&Test::A), &"A");
+    assert_eq!(TABLE.get(&Test::B), &"B");
+    assert_eq!(TABLE.get(&Test::C), &"C");
+}
 ```
 
 ### More Method

@@ -1,3 +1,5 @@
+#![doc = include_str!(concat!("../", std::env!("CARGO_PKG_README")))]
+
 #[cfg(feature = "derive")]
 pub use enum_table_derive::Enumable;
 
