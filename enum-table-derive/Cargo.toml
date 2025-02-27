@@ -1,0 +1,19 @@
+[package]
+name = "enum-table-derive"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Derive macro for enum-table."
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+readme.workspace = true
+keywords.workspace = true
+
+[dependencies]
+syn = { version = "2.0", default-features = false }
+proc-macro2 = "1.0"
+quote = "1.0"
+
+[lints]
+workspace = true

@@ -1,0 +1,24 @@
+[package]
+name = "enum-table"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "A library for creating tables with enums as key."
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+categories.workspace = true
+keywords.workspace = true
+
+[lib]
+name = "enum_table"
+
+[features]
+default = ["derive"]
+derive = ["dep:enum-table-derive"]
+
+[dependencies]
+enum-table-derive = { version = "^0", path = "../enum-table-derive", optional = true }
+
+[lints]
+workspace = true
