@@ -11,13 +11,15 @@
 /// # Example
 ///
 /// ```rust
+/// use enum_table::{EnumTable, Enumable, et};
+///
 /// enum Test {
 ///     A,
 ///     B,
 ///     C,
 /// }
 ///
-/// impl Enumable for Test {
+/// impl enum_table::Enumable for Test {
 ///     const VARIANTS: &'static [Self] = &[Test::A, Test::B, Test::C];
 /// }
 ///

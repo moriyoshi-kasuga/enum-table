@@ -32,7 +32,7 @@ fn derive_enumable_internal(input: DeriveInput) -> Result<TokenStream> {
     }
 
     let expanded = quote! {
-        impl Enumable for #ident {
+        impl enum_table::Enumable for #ident {
             const VARIANTS: &'static [#ident] = &[#(#variant_values),*];
         }
     };
