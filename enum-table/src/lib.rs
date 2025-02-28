@@ -95,38 +95,17 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
         });
     }
 
-    /// const function is not callable drop.
-    /// So, we use forget to avoid calling drop.
-    /// Careful, not to call drop on the old value.
-    /// Sets the value associated with the given enumeration variant in a constant context.
-    ///
-    /// # Arguments
-    ///
-    /// * `variant` - A reference to an enumeration variant.
-    /// * `value` - The new value to associate with the variant.
-    ///
-    /// # Safety
-    ///
-    /// This method uses `std::mem::forget` to avoid calling `drop` on the old value.
-    /// Be careful not to call `drop` on the old value manually.
-    pub const fn const_set(&mut self, variant: &K, value: V) {
-        use_variant_value!(self, variant, i, {
-            let old = core::mem::replace(&mut self.table[i].1, value);
-            std::mem::forget(old);
-            return;
-        });
-    }
-
     /// Sets the value associated with the given enumeration variant.
     ///
     /// # Arguments
     ///
     /// * `variant` - A reference to an enumeration variant.
     /// * `value` - The new value to associate with the variant.
-    pub fn set(&mut self, variant: &K, value: V) {
+    /// # Returns
+    /// The old value associated with the variant.
+    pub const fn set(&mut self, variant: &K, value: V) -> V {
         use_variant_value!(self, variant, i, {
-            self.table[i].1 = value;
-            return;
+            return core::mem::replace(&mut self.table[i].1, value);
         });
     }
 
