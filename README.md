@@ -58,7 +58,7 @@ fn main() {
     assert_eq!(table.get(&Test::C), &"C");
 
     // Alternatively, create an EnumTable using the et! macro
-    const TABLE: enum_table::EnumTable<Test, &'static str, { Test::COUNT }> = enum_table::et!(Test, &'static str, Test::COUNT, |t| match t {
+    const TABLE: enum_table::EnumTable<Test, &'static str, { Test::COUNT }> = enum_table::et!(Test, &'static str, |t| match t {
         Test::A => "A",
         Test::B => "B",
         Test::C => "C",

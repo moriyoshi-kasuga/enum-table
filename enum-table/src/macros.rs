@@ -24,7 +24,7 @@
 /// }
 ///
 /// const TABLE: EnumTable<Test, &'static str, { Test::COUNT }> =
-///     et!(Test, &'static str, Test::COUNT, |t| match t {
+///     et!(Test, &'static str, |t| match t {
 ///         Test::A => "A",
 ///         Test::B => "B",
 ///         Test::C => "C",
@@ -36,9 +36,9 @@
 ///
 #[macro_export]
 macro_rules! et {
-    ($variant:ty, $value:ty, $count:expr, |$variable:ident| $($tt:tt)*) => {
+    ($variant:ty, $value:ty, |$variable:ident| $($tt:tt)*) => {
         {
-            let mut builder = $crate::builder::EnumTableBuilder::<$variant, $value, { $count }>::new();
+            let mut builder = $crate::builder::EnumTableBuilder::<$variant, $value, { <$variant as $crate::Enumable>::COUNT }>::new();
 
             let mut i = 0;
             while i < builder.len() {
@@ -72,7 +72,7 @@ mod tests {
         }
 
         const TABLE: EnumTable<Test, &'static str, { Test::COUNT }> =
-            et!(Test, &'static str, Test::COUNT, |t| match t {
+            et!(Test, &'static str, |t| match t {
                 Test::A => "A",
                 Test::B => "B",
                 Test::C => "C",
