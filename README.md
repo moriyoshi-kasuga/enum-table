@@ -28,10 +28,12 @@ use enum_table::{EnumTable, Enumable};
 
 // Define an enum and derive the Enumable trait
 // #[derive(Enumable)]
+#[repr(u8)]
 enum Test {
-    A,
-    B,
-    C,
+    // ok with discriminant
+    A = 100,
+    B = 1,
+    C = 34,
 }
 
 // Equivalent code not using `#[derive(enum_table::Enumable)]`
