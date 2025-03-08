@@ -20,9 +20,10 @@ pub trait Enumable: Sized + 'static {
 }
 
 const fn to_usize<T>(t: T) -> usize {
+    use core::mem::ManuallyDrop;
+
     #[inline(always)]
     const fn cast<T, U>(t: T) -> U {
-        use core::mem::ManuallyDrop;
         unsafe { core::mem::transmute_copy::<ManuallyDrop<T>, U>(&ManuallyDrop::new(t)) }
     }
 
