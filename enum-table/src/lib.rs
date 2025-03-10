@@ -125,10 +125,11 @@ mod dev_macros {
     macro_rules! use_variant_value {
         ($self:ident, $variant:ident, $i:ident,{$($tt:tt)+}) => {
             let discriminant = core::mem::discriminant($variant);
+            let discriminant_num = to_usize(discriminant);
 
             let mut $i = 0;
             while $i < $self.table.len() {
-                if to_usize($self.table[$i].0) == to_usize(discriminant) {
+                if to_usize($self.table[$i].0) == discriminant_num {
                     $($tt)+
                 }
                 $i += 1;
