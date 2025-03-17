@@ -42,7 +42,48 @@ const fn to_usize<T>(t: T) -> usize {
 ///
 /// `EnumTable` is a generic struct that uses an enumeration as keys and stores
 /// associated values. It provides constant-time access to the values based on
-/// the enumeration variant.
+/// the enumeration variant. This is particularly useful when you want to map
+/// enum variants to specific values without the overhead of a `HashMap`.
+///
+/// # Type Parameters
+///
+/// * `K`: The enumeration type that implements the `Enumable` trait. This trait
+///   ensures that the enum provides a static array of its variants and a count
+///   of these variants.
+/// * `V`: The type of values to be associated with each enum variant.
+/// * `N`: The number of variants in the enum, which should match the length of
+///   the static array of variants provided by the `Enumable` trait.
+///
+/// # Note
+/// The `new` method allows for the creation of an `EnumTable` in `const` contexts,
+/// but it does not perform compile-time checks. For enhanced compile-time safety
+/// and convenience, it is advisable to use the [`crate::et`] macro or
+/// [`crate::builder::EnumTableBuilder`], which provide these checks.
+///
+/// # Examples
+///
+/// ```rust
+/// use enum_table::{EnumTable, Enumable};
+///
+/// #[derive(Enumable)]
+/// enum Color {
+///     Red,
+///     Green,
+///     Blue,
+/// }
+///
+/// // Create an EnumTable using the new_with_fn method
+/// let table = EnumTable::<Color, &'static str, { Color::COUNT }>::new_with_fn(|color| match color {
+///     Color::Red => "Red",
+///     Color::Green => "Green",
+///     Color::Blue => "Blue",
+/// });
+///
+/// // Access values associated with enum variants
+/// assert_eq!(table.get(&Color::Red), &"Red");
+/// assert_eq!(table.get(&Color::Green), &"Green");
+/// assert_eq!(table.get(&Color::Blue), &"Blue");
+/// ```
 #[derive(Debug, Clone, Copy)]
 pub struct EnumTable<K: Enumable, V, const N: usize> {
     table: [(usize, V); N],
@@ -51,6 +92,8 @@ pub struct EnumTable<K: Enumable, V, const N: usize> {
 
 impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// Creates a new `EnumTable` with the given table of discriminants and values.
+    /// Typically, you would use the [`crate::et`] macro or the [`crate::builder::EnumTableBuilder`] instead.
+    ///
     ///
     /// # Arguments
     ///

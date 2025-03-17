@@ -6,6 +6,40 @@ use crate::{to_usize, EnumTable, Enumable};
 ///
 /// `EnumTableBuilder` allows for the incremental construction of an `EnumTable`
 /// by pushing elements one by one and then building the final table.
+///
+/// # Note
+/// The builder is expected to be filled completely before building the table.
+/// If the builder is not filled completely, the `build` and `build_to` method will panic.
+/// For a clearer and more concise approach, consider using the [`crate::et`] macro.
+///
+/// # Example
+/// ```rust
+/// use enum_table::{EnumTable, Enumable, builder::EnumTableBuilder,};
+///
+/// #[derive(Debug)]
+/// enum Test {
+///     A,
+///     B,
+///     C,
+/// }
+///
+/// impl Enumable for Test {
+///     const VARIANTS: &'static [Self] = &[Test::A, Test::B, Test::C];
+/// }
+///
+/// const TABLE: EnumTable<Test, &'static str, { Test::COUNT }> = {
+///    let mut builder = EnumTableBuilder::<Test, &'static str, { Test::COUNT }>::new();
+///    builder.push(&Test::A, "A");
+///    builder.push(&Test::B, "B");
+///    builder.push(&Test::C, "C");
+///    builder.build_to()
+/// };
+///
+/// // Access values associated with enum variants
+/// assert_eq!(TABLE.get(&Test::A), &"A");
+/// assert_eq!(TABLE.get(&Test::B), &"B");
+/// assert_eq!(TABLE.get(&Test::C), &"C");
+/// ```
 pub struct EnumTableBuilder<K: Enumable, V, const N: usize> {
     idx: usize,
     table: [MaybeUninit<(usize, V)>; N],
