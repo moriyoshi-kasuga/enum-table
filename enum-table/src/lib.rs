@@ -84,7 +84,6 @@ const fn to_usize<T>(t: T) -> usize {
 /// assert_eq!(table.get(&Color::Green), &"Green");
 /// assert_eq!(table.get(&Color::Blue), &"Blue");
 /// ```
-#[derive(Debug, Clone, Copy)]
 pub struct EnumTable<K: Enumable, V, const N: usize> {
     table: [(usize, V); N],
     _phantom: core::marker::PhantomData<K>,
