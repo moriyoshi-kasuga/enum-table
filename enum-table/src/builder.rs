@@ -1,6 +1,6 @@
-use std::mem::{Discriminant, MaybeUninit};
+use std::mem::MaybeUninit;
 
-use crate::{EnumTable, Enumable};
+use crate::{to_usize, EnumTable, Enumable};
 
 /// A builder for creating an `EnumTable` with a specified number of elements.
 ///
@@ -8,7 +8,8 @@ use crate::{EnumTable, Enumable};
 /// by pushing elements one by one and then building the final table.
 pub struct EnumTableBuilder<K: Enumable, V, const N: usize> {
     idx: usize,
-    table: [MaybeUninit<(Discriminant<K>, V)>; N],
+    table: [MaybeUninit<(usize, V)>; N],
+    _phantom: core::marker::PhantomData<K>,
 }
 
 impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
@@ -21,6 +22,7 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
         Self {
             idx: 0,
             table: [const { MaybeUninit::uninit() }; N],
+            _phantom: core::marker::PhantomData,
         }
     }
 
@@ -31,7 +33,9 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
     /// * `variant` - A reference to an enumeration variant.
     /// * `value` - The value to associate with the variant.
     pub const fn push(&mut self, variant: &K, value: V) {
-        self.table[self.idx] = MaybeUninit::new((core::mem::discriminant(variant), value));
+        self.table[self.idx] =
+            MaybeUninit::new((to_usize(core::mem::discriminant(variant)), value));
+
         self.idx += 1;
     }
 
@@ -41,7 +45,7 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
     ///
     /// An array of tuples where each tuple contains a discriminant of an enumeration
     /// variant and its associated value.
-    pub const fn build(self) -> [(Discriminant<K>, V); N] {
+    pub const fn build(self) -> [(usize, V); N] {
         if self.idx != N {
             panic!("EnumTableBuilder: not enough elements");
         }

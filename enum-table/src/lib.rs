@@ -7,7 +7,6 @@ pub mod builder;
 mod impls;
 mod macros;
 
-use core::mem::Discriminant;
 use dev_macros::*;
 
 /// A trait for enumerations that can be used with `EnumTable`.
@@ -35,7 +34,7 @@ const fn to_usize<T>(t: T) -> usize {
         8 => cast::<T, u64>(t) as usize,
         #[cfg(target_pointer_width = "32")]
         8 => panic!("Unsupported size: 64-bit value found on a 32-bit architecture"),
-        _ => panic!("Unsupported size"),
+        _ => panic!("Values larger than u64 are not supported"),
     }
 }
 
@@ -46,7 +45,8 @@ const fn to_usize<T>(t: T) -> usize {
 /// the enumeration variant.
 #[derive(Debug, Clone, Copy)]
 pub struct EnumTable<K: Enumable, V, const N: usize> {
-    table: [(Discriminant<K>, V); N],
+    table: [(usize, V); N],
+    _phantom: core::marker::PhantomData<K>,
 }
 
 impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
@@ -56,8 +56,11 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     ///
     /// * `table` - An array of tuples where each tuple contains a discriminant of
     ///   an enumeration variant and its associated value.
-    pub const fn new(table: [(Discriminant<K>, V); N]) -> Self {
-        Self { table }
+    pub const fn new(table: [(usize, V); N]) -> Self {
+        Self {
+            table,
+            _phantom: core::marker::PhantomData,
+        }
     }
 
     /// Create a new EnumTable with a function that takes a variant and returns a value.
@@ -71,10 +74,13 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     pub fn new_with_fn(mut f: impl FnMut(&K) -> V) -> Self {
         let table = core::array::from_fn(|i| {
             let k = &K::VARIANTS[i];
-            (core::mem::discriminant(k), f(k))
+            (to_usize(core::mem::discriminant(k)), f(k))
         });
 
-        Self { table }
+        Self {
+            table,
+            _phantom: core::marker::PhantomData,
+        }
     }
 
     /// Returns a reference to the value associated with the given enumeration variant.
@@ -127,12 +133,11 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
 mod dev_macros {
     macro_rules! use_variant_value {
         ($self:ident, $variant:ident, $i:ident,{$($tt:tt)+}) => {
-            let discriminant = core::mem::discriminant($variant);
-            let discriminant_num = to_usize(discriminant);
+            let discriminant = to_usize(core::mem::discriminant($variant));
 
             let mut $i = 0;
             while $i < $self.table.len() {
-                if to_usize($self.table[$i].0) == discriminant_num {
+                if $self.table[$i].0 == discriminant {
                     $($tt)+
                 }
                 $i += 1;
