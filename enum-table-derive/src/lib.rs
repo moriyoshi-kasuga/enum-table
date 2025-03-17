@@ -12,7 +12,6 @@ pub fn derive_enumable(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
 }
 
 fn derive_enumable_internal(input: DeriveInput) -> Result<TokenStream> {
-    let ident = &input.ident;
     let variants = match &input.data {
         Data::Enum(data) => &data.variants,
         _ => {
@@ -23,17 +22,12 @@ fn derive_enumable_internal(input: DeriveInput) -> Result<TokenStream> {
         }
     };
 
-    let mut variant_idents = Vec::new();
-    let mut variant_values = Vec::new();
-    for variant in variants {
-        let ident = &variant.ident;
-        variant_idents.push(ident.clone());
-        variant_values.push(quote! { Self::#ident });
-    }
+    let variants = variants.iter().map(|v| &v.ident);
 
+    let ident = &input.ident;
     let expanded = quote! {
         impl enum_table::Enumable for #ident {
-            const VARIANTS: &'static [#ident] = &[#(#variant_values),*];
+            const VARIANTS: &'static [#ident] = &[#(Self::#variants),*];
         }
     };
 
