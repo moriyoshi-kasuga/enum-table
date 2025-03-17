@@ -31,7 +31,10 @@ const fn to_usize<T>(t: T) -> usize {
         1 => cast::<T, u8>(t) as usize,
         2 => cast::<T, u16>(t) as usize,
         4 => cast::<T, u32>(t) as usize,
+        #[cfg(target_pointer_width = "64")]
         8 => cast::<T, u64>(t) as usize,
+        #[cfg(target_pointer_width = "32")]
+        8 => panic!("Unsupported size: 64-bit value found on a 32-bit architecture"),
         _ => panic!("Unsupported size"),
     }
 }
