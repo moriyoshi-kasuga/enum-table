@@ -289,3 +289,199 @@ mod dev_macros {
 
     pub(super) use use_variant_value;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    enum Color {
+        Red,
+        Green,
+        Blue,
+    }
+
+    impl Enumable for Color {
+        const VARIANTS: &'static [Self] = &[Color::Red, Color::Green, Color::Blue];
+    }
+
+    const TABLES: EnumTable<Color, &'static str, { Color::COUNT }> =
+        crate::et!(Color, &'static str, |color| match color {
+            Color::Red => "Red",
+            Color::Green => "Green",
+            Color::Blue => "Blue",
+        });
+
+    #[test]
+    fn new() {
+        let table =
+            EnumTable::<Color, &'static str, { Color::COUNT }>::new_with_fn(|color| match color {
+                Color::Red => "Red",
+                Color::Green => "Green",
+                Color::Blue => "Blue",
+            });
+
+        assert_eq!(table.get(&Color::Red), &"Red");
+        assert_eq!(table.get(&Color::Green), &"Green");
+        assert_eq!(table.get(&Color::Blue), &"Blue");
+    }
+
+    #[test]
+    fn get() {
+        assert_eq!(TABLES.get(&Color::Red), &"Red");
+        assert_eq!(TABLES.get(&Color::Green), &"Green");
+        assert_eq!(TABLES.get(&Color::Blue), &"Blue");
+    }
+
+    #[test]
+    fn get_mut() {
+        let mut table = TABLES;
+        assert_eq!(table.get_mut(&Color::Red), &mut "Red");
+        assert_eq!(table.get_mut(&Color::Green), &mut "Green");
+        assert_eq!(table.get_mut(&Color::Blue), &mut "Blue");
+
+        *table.get_mut(&Color::Red) = "Changed Red";
+        *table.get_mut(&Color::Green) = "Changed Green";
+        *table.get_mut(&Color::Blue) = "Changed Blue";
+
+        assert_eq!(table.get(&Color::Red), &"Changed Red");
+        assert_eq!(table.get(&Color::Green), &"Changed Green");
+        assert_eq!(table.get(&Color::Blue), &"Changed Blue");
+    }
+
+    #[test]
+    fn set() {
+        let mut table = TABLES;
+        assert_eq!(table.set(&Color::Red, "New Red"), "Red");
+        assert_eq!(table.set(&Color::Green, "New Green"), "Green");
+        assert_eq!(table.set(&Color::Blue, "New Blue"), "Blue");
+
+        assert_eq!(table.get(&Color::Red), &"New Red");
+        assert_eq!(table.get(&Color::Green), &"New Green");
+        assert_eq!(table.get(&Color::Blue), &"New Blue");
+    }
+
+    #[test]
+    fn get_by_discriminant() {
+        assert_eq!(
+            TABLES.get_by_discriminant(Color::Red as usize),
+            Some(&"Red")
+        );
+        assert_eq!(
+            TABLES.get_by_discriminant(Color::Green as usize),
+            Some(&"Green")
+        );
+        assert_eq!(
+            TABLES.get_by_discriminant(Color::Blue as usize),
+            Some(&"Blue")
+        );
+        assert_eq!(TABLES.get_by_discriminant(999), None);
+    }
+
+    #[test]
+    fn get_mut_by_discriminant() {
+        let mut table = TABLES;
+        assert_eq!(
+            table.get_mut_by_discriminant(Color::Red as usize),
+            Some(&mut "Red")
+        );
+        assert_eq!(
+            table.get_mut_by_discriminant(Color::Green as usize),
+            Some(&mut "Green")
+        );
+        assert_eq!(
+            table.get_mut_by_discriminant(Color::Blue as usize),
+            Some(&mut "Blue")
+        );
+        assert_eq!(table.get_mut_by_discriminant(999), None);
+
+        if let Some(value) = table.get_mut_by_discriminant(Color::Red as usize) {
+            *value = "Changed Red";
+        }
+        assert_eq!(table.get(&Color::Red), &"Changed Red");
+    }
+
+    #[test]
+    fn set_by_discriminant() {
+        let mut table = TABLES;
+        assert_eq!(
+            table.set_by_discriminant(Color::Red as usize, "New Red"),
+            Ok("Red")
+        );
+        assert_eq!(
+            table.set_by_discriminant(Color::Green as usize, "New Green"),
+            Ok("Green")
+        );
+        assert_eq!(
+            table.set_by_discriminant(Color::Blue as usize, "New Blue"),
+            Ok("Blue")
+        );
+        assert_eq!(
+            table.set_by_discriminant(999, "Not Found"),
+            Err("Not Found")
+        );
+
+        assert_eq!(table.get(&Color::Red), &"New Red");
+        assert_eq!(table.get(&Color::Green), &"New Green");
+        assert_eq!(table.get(&Color::Blue), &"New Blue");
+    }
+
+    #[test]
+    fn keys() {
+        let keys: Vec<_> = TABLES.keys().collect();
+        assert_eq!(keys, vec![&Color::Red, &Color::Green, &Color::Blue]);
+    }
+
+    #[test]
+    fn values() {
+        let values: Vec<_> = TABLES.values().collect();
+        assert_eq!(values, vec![&"Red", &"Green", &"Blue"]);
+    }
+
+    #[test]
+    fn iter() {
+        let iter: Vec<_> = TABLES.iter().collect();
+        assert_eq!(
+            iter,
+            vec![
+                (&Color::Red, &"Red"),
+                (&Color::Green, &"Green"),
+                (&Color::Blue, &"Blue")
+            ]
+        );
+    }
+
+    #[test]
+    fn iter_mut() {
+        let mut table = TABLES;
+        for (key, value) in table.iter_mut() {
+            *value = match key {
+                Color::Red => "Changed Red",
+                Color::Green => "Changed Green",
+                Color::Blue => "Changed Blue",
+            };
+        }
+        let iter: Vec<_> = table.iter().collect();
+        assert_eq!(
+            iter,
+            vec![
+                (&Color::Red, &"Changed Red"),
+                (&Color::Green, &"Changed Green"),
+                (&Color::Blue, &"Changed Blue")
+            ]
+        );
+    }
+
+    #[test]
+    fn iter_by_discriminant() {
+        let iter: Vec<_> = TABLES.iter_by_discriminant().collect();
+        assert_eq!(
+            iter,
+            vec![
+                (Color::Red as usize, &"Red"),
+                (Color::Green as usize, &"Green"),
+                (Color::Blue as usize, &"Blue")
+            ]
+        );
+    }
+}
