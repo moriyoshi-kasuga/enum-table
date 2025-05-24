@@ -236,16 +236,24 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
         Err(value)
     }
 
+    /// Returns an iterator over references to the keys in the table.
     pub fn keys(&self) -> impl Iterator<Item = &K> {
         self.table
             .iter()
             .map(|(discriminant, _)| unsafe { core::mem::transmute::<usize, &K>(*discriminant) })
     }
 
+    /// Returns an iterator over references to the values in the table.
     pub fn values(&self) -> impl Iterator<Item = &V> {
         self.table.iter().map(|(_, value)| value)
     }
 
+    /// Returns an iterator over mutable references to the values in the table.
+    pub fn values_mut(&mut self) -> impl Iterator<Item = &mut V> {
+        self.table.iter_mut().map(|(_, value)| value)
+    }
+
+    /// Returns an iterator over mutable references to the values in the table.
     pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
         self.table.iter().map(|(discriminant, value)| {
             (
@@ -255,6 +263,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
         })
     }
 
+    /// Returns an iterator over mutable references to the values in the table.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (&K, &mut V)> {
         self.table.iter_mut().map(|(discriminant, value)| {
             (
@@ -264,6 +273,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
         })
     }
 
+    /// Returns an iterator over the discriminants and their associated values.
     pub fn iter_by_discriminant(&self) -> impl Iterator<Item = (usize, &V)> {
         self.table
             .iter()
