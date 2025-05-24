@@ -175,7 +175,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     pub fn keys(&self) -> impl Iterator<Item = &K> {
         self.table
             .iter()
-            .map(|(discriminant, _)| unsafe { core::mem::transmute::<usize, &K>(*discriminant) })
+            .map(|(discriminant, _)| unsafe { std::mem::transmute(discriminant) })
     }
 
     /// Returns an iterator over references to the values in the table.
@@ -192,7 +192,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
         self.table.iter().map(|(discriminant, value)| {
             (
-                unsafe { core::mem::transmute::<usize, &K>(*discriminant) },
+                unsafe { std::mem::transmute::<&usize, &K>(discriminant) },
                 value,
             )
         })
@@ -202,7 +202,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (&K, &mut V)> {
         self.table.iter_mut().map(|(discriminant, value)| {
             (
-                unsafe { core::mem::transmute::<usize, &K>(*discriminant) },
+                unsafe { std::mem::transmute::<&mut usize, &K>(discriminant) },
                 value,
             )
         })
