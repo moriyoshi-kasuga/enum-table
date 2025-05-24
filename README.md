@@ -34,7 +34,7 @@ use enum_table::{EnumTable, Enumable};
 
 // Define an enum and derive the Enumable trait
 // #[derive(Enumable)]
-#[repr(u8)]
+#[repr(u8)] // repr is optional
 enum Test {
     // ok with discriminant
     A = 100,
