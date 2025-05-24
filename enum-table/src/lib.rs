@@ -171,71 +171,6 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
         false
     }
 
-    /// Returns the reference to the value associated with the given discriminant.
-    ///
-    /// # Arguments
-    ///
-    /// * `discriminant` - The discriminant of the enumeration variant.
-    ///
-    /// # Returns
-    /// An `Option` containing a reference to the value associated with the discriminant,
-    /// or `None` if the discriminant is not found in the table.
-    pub const fn get_by_discriminant(&self, discriminant: usize) -> Option<&V> {
-        let mut i = 0;
-        while i < self.table.len() {
-            if self.table[i].0 == discriminant {
-                return Some(&self.table[i].1);
-            }
-            i += 1;
-        }
-        None
-    }
-
-    /// Returns a mutable reference to the value associated with the given discriminant.
-    ///
-    /// # Arguments
-    ///
-    /// * `discriminant` - The discriminant of the enumeration variant.
-    ///
-    /// # Returns
-    ///
-    /// An `Option` containing a mutable reference to the value associated with the discriminant,
-    /// or `None` if the discriminant is not found in the table.
-    pub const fn get_mut_by_discriminant(&mut self, discriminant: usize) -> Option<&mut V> {
-        let mut i = 0;
-        while i < self.table.len() {
-            if self.table[i].0 == discriminant {
-                return Some(&mut self.table[i].1);
-            }
-            i += 1;
-        }
-        None
-    }
-
-    /// Sets the value associated with the given discriminant.
-    ///
-    /// # Arguments
-    ///
-    /// * `discriminant` - The discriminant of the enumeration variant.
-    /// * `value` - The new value to associate with the discriminant.
-    ///
-    /// # Returns
-    ///
-    /// Returns `Ok` with the old value associated with the discriminant if it exists,
-    /// or `Err` with the provided value if the discriminant is not found in the table.
-    /// (Returns the provided value in `Err` because this function is `const` and dropping
-    /// values is not allowed in a const context.)
-    pub const fn set_by_discriminant(&mut self, discriminant: usize, value: V) -> Result<V, V> {
-        let mut i = 0;
-        while i < self.table.len() {
-            if self.table[i].0 == discriminant {
-                return Ok(core::mem::replace(&mut self.table[i].1, value));
-            }
-            i += 1;
-        }
-        Err(value)
-    }
-
     /// Returns an iterator over references to the keys in the table.
     pub fn keys(&self) -> impl Iterator<Item = &K> {
         self.table
@@ -271,13 +206,6 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
                 value,
             )
         })
-    }
-
-    /// Returns an iterator over the discriminants and their associated values.
-    pub fn iter_by_discriminant(&self) -> impl Iterator<Item = (usize, &V)> {
-        self.table
-            .iter()
-            .map(|(discriminant, value)| (*discriminant, value))
     }
 }
 
@@ -372,71 +300,6 @@ mod tests {
     }
 
     #[test]
-    fn get_by_discriminant() {
-        assert_eq!(
-            TABLES.get_by_discriminant(Color::Red as usize),
-            Some(&"Red")
-        );
-        assert_eq!(
-            TABLES.get_by_discriminant(Color::Green as usize),
-            Some(&"Green")
-        );
-        assert_eq!(
-            TABLES.get_by_discriminant(Color::Blue as usize),
-            Some(&"Blue")
-        );
-        assert_eq!(TABLES.get_by_discriminant(999), None);
-    }
-
-    #[test]
-    fn get_mut_by_discriminant() {
-        let mut table = TABLES;
-        assert_eq!(
-            table.get_mut_by_discriminant(Color::Red as usize),
-            Some(&mut "Red")
-        );
-        assert_eq!(
-            table.get_mut_by_discriminant(Color::Green as usize),
-            Some(&mut "Green")
-        );
-        assert_eq!(
-            table.get_mut_by_discriminant(Color::Blue as usize),
-            Some(&mut "Blue")
-        );
-        assert_eq!(table.get_mut_by_discriminant(999), None);
-
-        if let Some(value) = table.get_mut_by_discriminant(Color::Red as usize) {
-            *value = "Changed Red";
-        }
-        assert_eq!(table.get(&Color::Red), &"Changed Red");
-    }
-
-    #[test]
-    fn set_by_discriminant() {
-        let mut table = TABLES;
-        assert_eq!(
-            table.set_by_discriminant(Color::Red as usize, "New Red"),
-            Ok("Red")
-        );
-        assert_eq!(
-            table.set_by_discriminant(Color::Green as usize, "New Green"),
-            Ok("Green")
-        );
-        assert_eq!(
-            table.set_by_discriminant(Color::Blue as usize, "New Blue"),
-            Ok("Blue")
-        );
-        assert_eq!(
-            table.set_by_discriminant(999, "Not Found"),
-            Err("Not Found")
-        );
-
-        assert_eq!(table.get(&Color::Red), &"New Red");
-        assert_eq!(table.get(&Color::Green), &"New Green");
-        assert_eq!(table.get(&Color::Blue), &"New Blue");
-    }
-
-    #[test]
     fn keys() {
         let keys: Vec<_> = TABLES.keys().collect();
         assert_eq!(keys, vec![&Color::Red, &Color::Green, &Color::Blue]);
@@ -478,19 +341,6 @@ mod tests {
                 (&Color::Red, &"Changed Red"),
                 (&Color::Green, &"Changed Green"),
                 (&Color::Blue, &"Changed Blue")
-            ]
-        );
-    }
-
-    #[test]
-    fn iter_by_discriminant() {
-        let iter: Vec<_> = TABLES.iter_by_discriminant().collect();
-        assert_eq!(
-            iter,
-            vec![
-                (Color::Red as usize, &"Red"),
-                (Color::Green as usize, &"Green"),
-                (Color::Blue as usize, &"Blue")
             ]
         );
     }
