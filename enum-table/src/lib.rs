@@ -170,6 +170,71 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     pub const fn is_empty(&self) -> bool {
         false
     }
+
+    /// Returns the reference to the value associated with the given discriminant.
+    ///
+    /// # Arguments
+    ///
+    /// * `discriminant` - The discriminant of the enumeration variant.
+    ///
+    /// # Returns
+    /// An `Option` containing a reference to the value associated with the discriminant,
+    /// or `None` if the discriminant is not found in the table.
+    pub const fn get_by_discriminant(&self, discriminant: usize) -> Option<&V> {
+        let mut i = 0;
+        while i < self.table.len() {
+            if self.table[i].0 == discriminant {
+                return Some(&self.table[i].1);
+            }
+            i += 1;
+        }
+        None
+    }
+
+    /// Returns a mutable reference to the value associated with the given discriminant.
+    ///
+    /// # Arguments
+    ///
+    /// * `discriminant` - The discriminant of the enumeration variant.
+    ///
+    /// # Returns
+    ///
+    /// An `Option` containing a mutable reference to the value associated with the discriminant,
+    /// or `None` if the discriminant is not found in the table.
+    pub const fn get_mut_by_discriminant(&mut self, discriminant: usize) -> Option<&mut V> {
+        let mut i = 0;
+        while i < self.table.len() {
+            if self.table[i].0 == discriminant {
+                return Some(&mut self.table[i].1);
+            }
+            i += 1;
+        }
+        None
+    }
+
+    /// Sets the value associated with the given discriminant.
+    ///
+    /// # Arguments
+    ///
+    /// * `discriminant` - The discriminant of the enumeration variant.
+    /// * `value` - The new value to associate with the discriminant.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok` with the old value associated with the discriminant if it exists,
+    /// or `Err` with the provided value if the discriminant is not found in the table.
+    /// (Returns the provided value in `Err` because this function is `const` and dropping
+    /// values is not allowed in a const context.)
+    pub const fn set_by_discriminant(&mut self, discriminant: usize, value: V) -> Result<V, V> {
+        let mut i = 0;
+        while i < self.table.len() {
+            if self.table[i].0 == discriminant {
+                return Ok(core::mem::replace(&mut self.table[i].1, value));
+            }
+            i += 1;
+        }
+        Err(value)
+    }
 }
 
 mod dev_macros {
