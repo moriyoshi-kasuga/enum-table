@@ -235,6 +235,40 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
         }
         Err(value)
     }
+
+    pub fn keys(&self) -> impl Iterator<Item = &K> {
+        self.table
+            .iter()
+            .map(|(discriminant, _)| unsafe { core::mem::transmute::<usize, &K>(*discriminant) })
+    }
+
+    pub fn values(&self) -> impl Iterator<Item = &V> {
+        self.table.iter().map(|(_, value)| value)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
+        self.table.iter().map(|(discriminant, value)| {
+            (
+                unsafe { core::mem::transmute::<usize, &K>(*discriminant) },
+                value,
+            )
+        })
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&K, &mut V)> {
+        self.table.iter_mut().map(|(discriminant, value)| {
+            (
+                unsafe { core::mem::transmute::<usize, &K>(*discriminant) },
+                value,
+            )
+        })
+    }
+
+    pub fn iter_by_discriminant(&self) -> impl Iterator<Item = (usize, &V)> {
+        self.table
+            .iter()
+            .map(|(discriminant, value)| (*discriminant, value))
+    }
 }
 
 mod dev_macros {
