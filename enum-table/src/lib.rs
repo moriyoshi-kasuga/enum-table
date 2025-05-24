@@ -18,20 +18,20 @@ pub trait Enumable: Sized + 'static {
     const COUNT: usize = Self::VARIANTS.len();
 }
 
-const fn to_usize<T>(t: T) -> usize {
-    use core::mem::ManuallyDrop;
-
+const fn to_usize<T: Copy>(t: T) -> usize {
     #[inline(always)]
-    const fn cast<T, U>(t: T) -> U {
-        unsafe { core::mem::transmute_copy::<ManuallyDrop<T>, U>(&ManuallyDrop::new(t)) }
+    const fn cast<U>(t: &impl Sized) -> &U {
+        unsafe { std::mem::transmute(t) }
     }
 
+    let t = &t;
+
     match const { core::mem::size_of::<T>() } {
-        1 => cast::<T, u8>(t) as usize,
-        2 => cast::<T, u16>(t) as usize,
-        4 => cast::<T, u32>(t) as usize,
+        1 => *cast::<u8>(t) as usize,
+        2 => *cast::<u16>(t) as usize,
+        4 => *cast::<u32>(t) as usize,
         #[cfg(target_pointer_width = "64")]
-        8 => cast::<T, u64>(t) as usize,
+        8 => *cast::<u64>(t) as usize,
         #[cfg(target_pointer_width = "32")]
         8 => panic!("Unsupported size: 64-bit value found on a 32-bit architecture"),
         _ => panic!("Values larger than u64 are not supported"),
