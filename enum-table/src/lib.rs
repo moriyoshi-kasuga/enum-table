@@ -253,7 +253,7 @@ mod tests {
         });
 
     #[test]
-    fn new() {
+    fn new_with_fn() {
         let table =
             EnumTable::<Color, &'static str, { Color::COUNT }>::new_with_fn(|color| match color {
                 Color::Red => "Red",
