@@ -2,11 +2,11 @@ use std::ops::{Index, IndexMut};
 
 use crate::{EnumTable, Enumable};
 
-impl<K: Enumable, V: core::fmt::Debug, const N: usize> core::fmt::Debug for EnumTable<K, V, N> {
+impl<K: Enumable + core::fmt::Debug, V: core::fmt::Debug, const N: usize> core::fmt::Debug
+    for EnumTable<K, V, N>
+{
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        f.debug_struct("EnumTable")
-            .field("table", &self.table)
-            .finish()
+        f.debug_map().entries(self.iter()).finish()
     }
 }
 
