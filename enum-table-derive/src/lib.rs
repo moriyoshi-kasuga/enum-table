@@ -22,7 +22,18 @@ fn derive_enumable_internal(input: DeriveInput) -> Result<TokenStream> {
         }
     };
 
-    let variants = variants.iter().map(|v| &v.ident);
+    let variants = variants
+        .iter()
+        .map(|v| {
+            if !matches!(v.fields, syn::Fields::Unit) {
+                return Err(syn::Error::new_spanned(
+                    v,
+                    "Enumable can only be derived for unit variants",
+                ));
+            }
+            Ok(&v.ident)
+        })
+        .collect::<Result<Vec<_>>>()?;
 
     let ident = &input.ident;
     let expanded = quote! {
