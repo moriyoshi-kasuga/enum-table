@@ -21,6 +21,7 @@ pub trait Enumable: Sized + 'static {
 const fn to_usize<T: Copy>(t: T) -> usize {
     #[inline(always)]
     const fn cast<U>(t: &impl Sized) -> &U {
+        // SAFETY: This is safe because we ensure that the type T is a valid representation
         unsafe { std::mem::transmute(t) }
     }
 
@@ -35,6 +36,13 @@ const fn to_usize<T: Copy>(t: T) -> usize {
         #[cfg(target_pointer_width = "32")]
         8 => panic!("Unsupported size: 64-bit value found on a 32-bit architecture"),
         _ => panic!("Values larger than u64 are not supported"),
+    }
+}
+
+const fn from_usize<T>(u: &usize) -> &T {
+    unsafe {
+        // SAFETY: This is safe because we ensure that the usize is derived from a valid T
+        std::mem::transmute::<&usize, &T>(u)
     }
 }
 
@@ -175,7 +183,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     pub fn keys(&self) -> impl Iterator<Item = &K> {
         self.table
             .iter()
-            .map(|(discriminant, _)| unsafe { std::mem::transmute(discriminant) })
+            .map(|(discriminant, _)| from_usize(discriminant))
     }
 
     /// Returns an iterator over references to the values in the table.
@@ -190,22 +198,16 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
 
     /// Returns an iterator over mutable references to the values in the table.
     pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
-        self.table.iter().map(|(discriminant, value)| {
-            (
-                unsafe { std::mem::transmute::<&usize, &K>(discriminant) },
-                value,
-            )
-        })
+        self.table
+            .iter()
+            .map(|(discriminant, value)| (from_usize(discriminant), value))
     }
 
     /// Returns an iterator over mutable references to the values in the table.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (&K, &mut V)> {
-        self.table.iter_mut().map(|(discriminant, value)| {
-            (
-                unsafe { std::mem::transmute::<&mut usize, &K>(discriminant) },
-                value,
-            )
-        })
+        self.table
+            .iter_mut()
+            .map(|(discriminant, value)| (from_usize(discriminant), value))
     }
 }
 
