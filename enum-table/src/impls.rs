@@ -19,8 +19,6 @@ impl<K: Enumable, V: Clone, const N: usize> Clone for EnumTable<K, V, N> {
     }
 }
 
-impl<K: Enumable, V: Copy, const N: usize> Copy for EnumTable<K, V, N> {}
-
 impl<K: Enumable, V: PartialEq, const N: usize> PartialEq for EnumTable<K, V, N> {
     fn eq(&self, other: &Self) -> bool {
         self.table.eq(&other.table)
