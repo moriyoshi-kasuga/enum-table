@@ -122,15 +122,72 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// * `f` - A function that takes a reference to an enumeration variant and returns
     ///   a value to be associated with that variant.
     pub fn new_with_fn(mut f: impl FnMut(&K) -> V) -> Self {
-        let table = core::array::from_fn(|i| {
-            let k = &K::VARIANTS[i];
-            (to_usize(core::mem::discriminant(k)), f(k))
-        });
+        let mut builder = builder::EnumTableBuilder::<K, V, N>::new();
 
-        Self {
-            table,
-            _phantom: core::marker::PhantomData,
+        for variant in K::VARIANTS {
+            builder.push(variant, f(variant));
         }
+
+        builder.build_to()
+    }
+
+    /// Creates a new `EnumTable` using a function that returns a `Result` for each variant.
+    ///
+    /// This method applies the provided closure to each variant of the enum. If the closure
+    /// returns `Ok(value)` for all variants, an `EnumTable` is constructed and returned as `Ok(Self)`.
+    /// If the closure returns `Err(e)` for any variant, the construction is aborted and
+    /// `Err((variant, e))` is returned, where `variant` is the enum variant that caused the error.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - A closure that takes a reference to an enum variant and returns a `Result<V, E>`.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Self)` if all variants succeed.
+    /// * `Err((variant, e))` if any variant fails, containing the failing variant and the error.
+    pub fn try_new_with_fn<E>(
+        mut f: impl FnMut(&K) -> Result<V, E>,
+    ) -> Result<Self, (&'static K, E)> {
+        let mut builder = builder::EnumTableBuilder::<K, V, N>::new();
+
+        for variant in K::VARIANTS {
+            match f(variant) {
+                Ok(value) => builder.push(variant, value),
+                Err(e) => return Err((variant, e)),
+            }
+        }
+
+        Ok(builder.build_to())
+    }
+
+    /// Creates a new `EnumTable` using a function that returns an `Option` for each variant.
+    ///
+    /// This method applies the provided closure to each variant of the enum. If the closure
+    /// returns `Some(value)` for all variants, an `EnumTable` is constructed and returned as `Ok(Self)`.
+    /// If the closure returns `None` for any variant, the construction is aborted and
+    /// `Err(variant)` is returned, where `variant` is the enum variant that caused the failure.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - A closure that takes a reference to an enum variant and returns an `Option<V>`.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Self)` if all variants succeed.
+    /// * `Err(variant)` if any variant fails, containing the failing variant.
+    pub fn checked_new_with_fn(mut f: impl FnMut(&K) -> Option<V>) -> Result<Self, &'static K> {
+        let mut builder = builder::EnumTableBuilder::<K, V, N>::new();
+
+        for variant in K::VARIANTS {
+            if let Some(value) = f(variant) {
+                builder.push(variant, value);
+            } else {
+                return Err(variant);
+            }
+        }
+
+        Ok(builder.build_to())
     }
 
     /// Returns a reference to the value associated with the given enumeration variant.
@@ -264,6 +321,72 @@ mod tests {
         assert_eq!(table.get(&Color::Red), &"Red");
         assert_eq!(table.get(&Color::Green), &"Green");
         assert_eq!(table.get(&Color::Blue), &"Blue");
+    }
+
+    #[test]
+    fn try_new_with_fn() {
+        let table =
+            EnumTable::<Color, &'static str, { Color::COUNT }>::try_new_with_fn(
+                |color| match color {
+                    Color::Red => Ok::<&'static str, std::convert::Infallible>("Red"),
+                    Color::Green => Ok("Green"),
+                    Color::Blue => Ok("Blue"),
+                },
+            );
+
+        assert!(table.is_ok());
+        let table = table.unwrap();
+
+        assert_eq!(table.get(&Color::Red), &"Red");
+        assert_eq!(table.get(&Color::Green), &"Green");
+        assert_eq!(table.get(&Color::Blue), &"Blue");
+
+        let error_table = EnumTable::<Color, &'static str, { Color::COUNT }>::try_new_with_fn(
+            |color| match color {
+                Color::Red => Ok("Red"),
+                Color::Green => Err("Error on Green"),
+                Color::Blue => Ok("Blue"),
+            },
+        );
+
+        assert!(error_table.is_err());
+        let (variant, error) = error_table.unwrap_err();
+
+        assert_eq!(variant, &Color::Green);
+        assert_eq!(error, "Error on Green");
+    }
+
+    #[test]
+    fn checked_new_with_fn() {
+        let table =
+            EnumTable::<Color, &'static str, { Color::COUNT }>::checked_new_with_fn(|color| {
+                match color {
+                    Color::Red => Some("Red"),
+                    Color::Green => Some("Green"),
+                    Color::Blue => Some("Blue"),
+                }
+            });
+
+        assert!(table.is_ok());
+        let table = table.unwrap();
+
+        assert_eq!(table.get(&Color::Red), &"Red");
+        assert_eq!(table.get(&Color::Green), &"Green");
+        assert_eq!(table.get(&Color::Blue), &"Blue");
+
+        let error_table =
+            EnumTable::<Color, &'static str, { Color::COUNT }>::checked_new_with_fn(|color| {
+                match color {
+                    Color::Red => Some("Red"),
+                    Color::Green => None,
+                    Color::Blue => Some("Blue"),
+                }
+            });
+
+        assert!(error_table.is_err());
+        let variant = error_table.unwrap_err();
+
+        assert_eq!(variant, &Color::Green);
     }
 
     #[test]
