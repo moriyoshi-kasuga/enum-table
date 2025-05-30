@@ -1,4 +1,4 @@
-# [enum-table][docsrs]: enum-table
+# [enum-table][docsrs]
 
 [![enum-table on crates.io][cratesio-image]][cratesio]
 [![enum-table on docs.rs][docsrs-image]][docsrs]
