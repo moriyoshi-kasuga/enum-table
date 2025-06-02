@@ -1,6 +1,9 @@
-use std::mem::MaybeUninit;
+use core::mem::MaybeUninit;
 
-use crate::{to_usize, EnumTable, Enumable};
+use crate::{
+    intrinsics::{to_usize, transmute_uninit},
+    EnumTable, Enumable,
+};
 
 /// A builder for creating an `EnumTable` with a specified number of elements.
 ///
@@ -83,7 +86,8 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
         if self.idx != N {
             panic!("EnumTableBuilder: not enough elements");
         }
-        unsafe { core::mem::transmute_copy(&self.table) }
+
+        transmute_uninit(self.table)
     }
 
     /// Builds the `EnumTable` from the pushed elements.

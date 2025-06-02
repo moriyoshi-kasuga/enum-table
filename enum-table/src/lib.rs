@@ -1,13 +1,16 @@
-#![doc = include_str!(concat!("../", std::env!("CARGO_PKG_README")))]
+#![doc = include_str!(concat!("../", core::env!("CARGO_PKG_README")))]
 
 #[cfg(feature = "derive")]
 pub use enum_table_derive::Enumable;
 
 pub mod builder;
+
 mod impls;
+mod intrinsics;
 mod macros;
 
 use dev_macros::*;
+use intrinsics::from_usize;
 
 /// A trait for enumerations that can be used with `EnumTable`.
 ///
@@ -16,34 +19,6 @@ use dev_macros::*;
 pub trait Enumable: Sized + 'static {
     const VARIANTS: &'static [Self];
     const COUNT: usize = Self::VARIANTS.len();
-}
-
-const fn to_usize<T: Copy>(t: T) -> usize {
-    #[inline(always)]
-    const fn cast<U>(t: &impl Sized) -> &U {
-        // SAFETY: This is safe because we ensure that the type T is a valid representation
-        unsafe { std::mem::transmute(t) }
-    }
-
-    let t = &t;
-
-    match const { core::mem::size_of::<T>() } {
-        1 => *cast::<u8>(t) as usize,
-        2 => *cast::<u16>(t) as usize,
-        4 => *cast::<u32>(t) as usize,
-        #[cfg(target_pointer_width = "64")]
-        8 => *cast::<u64>(t) as usize,
-        #[cfg(target_pointer_width = "32")]
-        8 => panic!("Unsupported size: 64-bit value found on a 32-bit architecture"),
-        _ => panic!("Values larger than u64 are not supported"),
-    }
-}
-
-const fn from_usize<T>(u: &usize) -> &T {
-    unsafe {
-        // SAFETY: This is safe because we ensure that the usize is derived from a valid T
-        std::mem::transmute::<&usize, &T>(u)
-    }
 }
 
 /// A table that associates each variant of an enumeration with a value.
@@ -271,7 +246,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
 mod dev_macros {
     macro_rules! use_variant_value {
         ($self:ident, $variant:ident, $i:ident,{$($tt:tt)+}) => {
-            let discriminant = to_usize(core::mem::discriminant($variant));
+            let discriminant = crate::intrinsics::to_usize(core::mem::discriminant($variant));
 
             let mut $i = 0;
             while $i < $self.table.len() {
@@ -328,7 +303,7 @@ mod tests {
         let table =
             EnumTable::<Color, &'static str, { Color::COUNT }>::try_new_with_fn(
                 |color| match color {
-                    Color::Red => Ok::<&'static str, std::convert::Infallible>("Red"),
+                    Color::Red => Ok::<&'static str, core::convert::Infallible>("Red"),
                     Color::Green => Ok("Green"),
                     Color::Blue => Ok("Blue"),
                 },
