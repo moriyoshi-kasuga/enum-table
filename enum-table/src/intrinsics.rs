@@ -14,23 +14,23 @@ pub(crate) const fn from_usize<T>(u: &usize) -> &T {
     }
 }
 
-pub(crate) const fn to_usize<T: Copy>(t: T) -> usize {
-    #[inline(always)]
-    const fn cast<U>(t: &impl Sized) -> &U {
-        // SAFETY: This is safe because we ensure that the type T is a valid representation
-        unsafe { core::mem::transmute(t) }
+pub(crate) const fn to_usize<T>(t: &T) -> usize {
+    macro_rules! as_usize {
+        ($t:ident as $type:ident) => {
+            unsafe { *(t as *const T as *const $type) as usize }
+        };
     }
 
-    let t = &t;
-
     match const { core::mem::size_of::<T>() } {
-        1 => *cast::<u8>(t) as usize,
-        2 => *cast::<u16>(t) as usize,
-        4 => *cast::<u32>(t) as usize,
+        1 => as_usize!(t as u8),
+        2 => as_usize!(t as u16),
+        4 => as_usize!(t as u32),
+
         #[cfg(target_pointer_width = "64")]
-        8 => *cast::<u64>(t) as usize,
+        8 => as_usize!(t as u64),
         #[cfg(target_pointer_width = "32")]
         8 => panic!("Unsupported size: 64-bit value found on a 32-bit architecture"),
-        _ => panic!("Values larger than u64 are not supported"),
+
+        _ => panic!("Values larger than 64 bits are not supported"),
     }
 }

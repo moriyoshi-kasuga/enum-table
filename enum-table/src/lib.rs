@@ -246,7 +246,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
 mod dev_macros {
     macro_rules! use_variant_value {
         ($self:ident, $variant:ident, $i:ident,{$($tt:tt)+}) => {
-            let discriminant = crate::intrinsics::to_usize(core::mem::discriminant($variant));
+            let discriminant = crate::intrinsics::to_usize($variant);
 
             let mut $i = 0;
             while $i < $self.table.len() {

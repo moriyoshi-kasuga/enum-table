@@ -70,8 +70,7 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
     /// * `variant` - A reference to an enumeration variant.
     /// * `value` - The value to associate with the variant.
     pub const fn push(&mut self, variant: &K, value: V) {
-        self.table[self.idx] =
-            MaybeUninit::new((to_usize(core::mem::discriminant(variant)), value));
+        self.table[self.idx] = MaybeUninit::new((to_usize(variant), value));
 
         self.idx += 1;
     }
