@@ -27,7 +27,7 @@ with compile-time safety and constant-time access.
 
 use enum_table::{EnumTable, Enumable};
 
-// #[derive(Enumable)] // Recommended for automatic implementation Enumable trait
+#[derive(Enumable)] // Recommended for automatic implementation Enumable trait
 #[repr(u8)] // Optional, but recommended for explicit discriminants
 enum Test {
     A = 100,
@@ -37,9 +37,9 @@ enum Test {
 
 // Implementing the Enumable trait manually
 // May forget to add all variants. Use derive macro instead. (This is README example)
-impl Enumable for Test {
-    const VARIANTS: &'static [Self] = &[Self::A, Self::B, Self::C];
-}
+// impl Enumable for Test {
+//     const VARIANTS: &'static [Self] = &[Self::A, Self::B, Self::C];
+// }
 
 fn main() {
     // Compile-time table creation using the et! macro
