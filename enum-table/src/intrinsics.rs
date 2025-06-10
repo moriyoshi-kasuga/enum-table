@@ -1,12 +1,3 @@
-use core::mem::MaybeUninit;
-
-pub(crate) const fn transmute_uninit<T, const N: usize>(array: [MaybeUninit<T>; N]) -> [T; N] {
-    // SAFETY: the array is fully initialized
-    let slice = unsafe { core::mem::transmute::<&[MaybeUninit<T>; N], &[T; N]>(&array) };
-    // SAFETY: the slice is derived from the passed-in array reference, ensuring no ownership issues.
-    unsafe { core::ptr::read(slice) }
-}
-
 pub(crate) const fn from_usize<T>(u: &usize) -> &T {
     unsafe {
         // SAFETY: the usize is derived from a valid T

@@ -1,9 +1,6 @@
 use core::mem::MaybeUninit;
 
-use crate::{
-    intrinsics::{to_usize, transmute_uninit},
-    EnumTable, Enumable,
-};
+use crate::{intrinsics::to_usize, EnumTable, Enumable};
 
 /// A builder for creating an `EnumTable` with a specified number of elements.
 ///
@@ -45,7 +42,7 @@ use crate::{
 /// ```
 pub struct EnumTableBuilder<K: Enumable, V, const N: usize> {
     idx: usize,
-    table: [MaybeUninit<(usize, V)>; N],
+    table: MaybeUninit<[(usize, V); N]>,
     _phantom: core::marker::PhantomData<K>,
 }
 
@@ -58,7 +55,7 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
     pub const fn new() -> Self {
         Self {
             idx: 0,
-            table: [const { MaybeUninit::uninit() }; N],
+            table: MaybeUninit::uninit(),
             _phantom: core::marker::PhantomData,
         }
     }
@@ -70,7 +67,18 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
     /// * `variant` - A reference to an enumeration variant.
     /// * `value` - The value to associate with the variant.
     pub const fn push(&mut self, variant: &K, value: V) {
-        self.table[self.idx] = MaybeUninit::new((to_usize(variant), value));
+        if self.idx >= N {
+            panic!("EnumTableBuilder: too many elements pushed");
+        }
+        let element = (to_usize(variant), value);
+
+        unsafe {
+            self.table
+                .as_mut_ptr()
+                .cast::<(usize, V)>()
+                .add(self.idx)
+                .write(element);
+        }
 
         self.idx += 1;
     }
@@ -86,7 +94,8 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
             panic!("EnumTableBuilder: not enough elements");
         }
 
-        transmute_uninit(self.table)
+        // SAFETY: The table is filled.
+        unsafe { self.table.assume_init() }
     }
 
     /// Builds the `EnumTable` from the pushed elements.
