@@ -28,11 +28,11 @@ with compile-time safety and constant-time access.
 use enum_table::{EnumTable, Enumable};
 
 #[derive(Enumable)] // Recommended for automatic implementation Enumable trait
-#[repr(u8)] // Optional, but recommended for explicit discriminants
+#[repr(u8)] // Optional: but recommended for specification of discriminants
 enum Test {
-    A = 100,
+    A = 100, // Optional: You can specify custom discriminants
     B = 1,
-    C = 34,
+    C,
 }
 
 // Implementing the Enumable trait manually
