@@ -116,13 +116,13 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
         N
     }
 
-    /// Returns `false` as the builder is expected to be filled completely.
+    /// Returns `true` if the builder has no elements pushed yet.
     ///
     /// # Returns
     ///
-    /// Always returns `false`.
+    /// `true` if no elements have been pushed, `false` otherwise.
     pub const fn is_empty(&self) -> bool {
-        false
+        self.idx == 0
     }
 }
 
