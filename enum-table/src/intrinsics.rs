@@ -1,6 +1,9 @@
 pub(crate) const fn from_usize<T>(u: &usize) -> &T {
     unsafe {
-        // SAFETY: the usize is derived from a valid T
+        // SAFETY: This function is only called with usize values that were originally
+        // derived from valid enum discriminants via to_usize(). The transmute is safe
+        // because we maintain the invariant that the usize was created from a T of the
+        // same type and the memory layout is preserved.
         core::mem::transmute::<&usize, &T>(u)
     }
 }
@@ -20,8 +23,8 @@ pub(crate) const fn to_usize<T>(t: &T) -> usize {
         #[cfg(target_pointer_width = "64")]
         8 => as_usize!(t as u64),
         #[cfg(target_pointer_width = "32")]
-        8 => panic!("Unsupported size: 64-bit value found on a 32-bit architecture"),
+        8 => panic!("enum-table: Cannot handle 64-bit enum discriminants on 32-bit architecture. Consider using smaller discriminant values or compile for 64-bit target."),
 
-        _ => panic!("Values larger than 64 bits are not supported"),
+        _ => panic!("enum-table: Enum discriminants larger than 64 bits are not supported. This is likely due to an extremely large enum or invalid memory layout."),
     }
 }
