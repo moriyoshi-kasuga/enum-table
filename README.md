@@ -73,7 +73,7 @@ fn main() {
 }
 ```
 
-### More Method
+### More Methods
 
 more info: [doc.rs](https://docs.rs/enum-table/latest/enum_table/struct.EnumTable.html)
 
