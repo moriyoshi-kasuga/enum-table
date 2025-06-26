@@ -19,6 +19,7 @@ with compile-time safety and constant-time access.
 - **Efficiency**: Constant-time access, no heap allocation.
 - **Custom Derive**: Procedural macro to automatically implement the `Enumable` trait for enums.
 - **Const Support**: Tables can be constructed at compile time.
+- **Serde Support**: Optional serialization and deserialization support with the `serde` feature.
 
 ## Usage
 
@@ -70,6 +71,48 @@ fn main() {
   
     assert_eq!(old_b, "B");
     assert_eq!(table.get(&Test::B), &"Changed B");
+}
+```
+
+### Serde Support
+
+Enable serde support by adding the `serde` feature:
+
+```toml
+[dependencies]
+enum-table = { version = "0.4", features = ["serde"] }
+serde_json = "1.0"
+```
+
+```rust
+#![cfg(feature = "serde")]
+
+use enum_table::{EnumTable, Enumable};
+use serde::{Serialize, Deserialize};
+
+#[derive(Debug, Enumable, Serialize, Deserialize, PartialEq, Eq, Hash)]
+enum Status {
+    Active,
+    Inactive,
+    Pending,
+}
+
+fn main() {
+  let table = EnumTable::<Status, &'static str, { Status::COUNT }>::new_with_fn(|status| match status {
+      Status::Active => "running",
+      Status::Inactive => "stopped", 
+      Status::Pending => "waiting",
+  });
+
+  const JSON_FIXED: &str = r#"{"Active":"running","Inactive":"stopped","Pending":"waiting"}"#;
+
+  let json = serde_json::to_string(&table).unwrap();
+  assert_eq!(json, JSON_FIXED);
+
+  let deserialized: EnumTable<Status, &str, { Status::COUNT }> = 
+      serde_json::from_str(&json).unwrap();
+
+  assert_eq!(table, deserialized);
 }
 ```
 
