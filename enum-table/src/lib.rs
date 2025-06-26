@@ -404,6 +404,49 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     }
 }
 
+impl<K: Enumable, V, const N: usize> EnumTable<K, Option<V>, N> {
+    /// Creates a new `EnumTable` with `None` values for each variant.
+    pub fn new_fill_with_none() -> Self {
+        let mut builder = builder::EnumTableBuilder::<K, Option<V>, N>::new();
+
+        for variant in K::VARIANTS {
+            builder.push(variant, None);
+        }
+
+        builder.build_to()
+    }
+
+    /// Clears the table, setting each value to `None`.
+    pub fn clear_to_none(&mut self) {
+        for (_, value) in &mut self.table {
+            *value = None;
+        }
+    }
+}
+
+impl<K: Enumable, V: Default, const N: usize> EnumTable<K, V, N> {
+    /// Creates a new `EnumTable` with default values for each variant.
+    ///
+    /// This method initializes the table with the default value of type `V` for each
+    /// variant of the enumeration.
+    pub fn new_fill_with_default() -> Self {
+        let mut builder = builder::EnumTableBuilder::<K, V, N>::new();
+
+        for variant in K::VARIANTS {
+            builder.push(variant, V::default());
+        }
+
+        builder.build_to()
+    }
+
+    /// Clears the table, setting each value to its default.
+    pub fn clear_to_default(&mut self) {
+        for (_, value) in &mut self.table {
+            *value = V::default();
+        }
+    }
+}
+
 mod dev_macros {
     macro_rules! use_variant_value {
         ($self:ident, $variant:ident, $i:ident,{$($tt:tt)+}) => {
