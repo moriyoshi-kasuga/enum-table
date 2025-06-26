@@ -8,6 +8,15 @@ pub(crate) const fn from_usize<T>(u: &usize) -> &T {
     }
 }
 
+pub(crate) const fn copy_variant<T>(t: &T) -> T {
+    unsafe { core::ptr::read(t) }
+}
+
+pub(crate) const fn copy_from_usize<T>(u: &usize) -> T {
+    let reference = from_usize::<T>(u);
+    copy_variant(reference)
+}
+
 pub(crate) const fn to_usize<T>(t: &T) -> usize {
     macro_rules! as_usize {
         ($t:ident as $type:ident) => {

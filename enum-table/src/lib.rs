@@ -10,7 +10,7 @@ mod intrinsics;
 mod macros;
 
 use dev_macros::*;
-use intrinsics::from_usize;
+use intrinsics::{copy_from_usize, copy_variant, from_usize, to_usize};
 
 /// A trait for enumerations that can be used with `EnumTable`.
 ///
@@ -20,6 +20,34 @@ pub trait Enumable: Sized + 'static {
     const VARIANTS: &'static [Self];
     const COUNT: usize = Self::VARIANTS.len();
 }
+
+/// Error type for `EnumTable::from_vec`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EnumTableFromVecError<K> {
+    /// The vector has an invalid size.
+    InvalidSize { expected: usize, found: usize },
+    /// A required enum variant is missing from the vector.
+    MissingVariant(K),
+}
+
+impl<K: core::fmt::Debug> core::fmt::Display for EnumTableFromVecError<K> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            EnumTableFromVecError::InvalidSize { expected, found } => {
+                write!(
+                    f,
+                    "Invalid vector size: expected {}, found {}",
+                    expected, found
+                )
+            }
+            EnumTableFromVecError::MissingVariant(variant) => {
+                write!(f, "Missing enum variant: {:?}", variant)
+            }
+        }
+    }
+}
+
+impl<K: core::fmt::Debug> core::error::Error for EnumTableFromVecError<K> {}
 
 /// A table that associates each variant of an enumeration with a value.
 ///
@@ -241,12 +269,145 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
             .iter_mut()
             .map(|(discriminant, value)| (from_usize(discriminant), value))
     }
+
+    /// Maps the values of the table using a closure, creating a new `EnumTable` with the transformed values.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - A closure that takes a value and returns a transformed value.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use enum_table::{EnumTable, Enumable};
+    ///
+    /// #[derive(Enumable)]
+    /// enum Color {
+    ///     Red,
+    ///     Green,
+    ///     Blue,
+    /// }
+    ///
+    /// let table = EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
+    ///     Color::Red => 1,
+    ///     Color::Green => 2,
+    ///     Color::Blue => 3,
+    /// });
+    ///
+    /// let doubled = table.map(|x| x * 2);
+    /// assert_eq!(doubled.get(&Color::Red), &2);
+    /// assert_eq!(doubled.get(&Color::Green), &4);
+    /// assert_eq!(doubled.get(&Color::Blue), &6);
+    /// ```
+    pub fn map<U, F>(self, mut f: F) -> EnumTable<K, U, N>
+    where
+        F: FnMut(V) -> U,
+    {
+        let mut builder = builder::EnumTableBuilder::<K, U, N>::new();
+
+        for (discriminant, value) in self.table {
+            let key = from_usize(&discriminant);
+            builder.push(key, f(value));
+        }
+
+        builder.build_to()
+    }
+
+    /// Converts the `EnumTable` into a `Vec` of key-value pairs.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use enum_table::{EnumTable, Enumable};
+    ///
+    /// #[derive(Enumable, Debug, PartialEq, Copy, Clone)]
+    /// enum Color {
+    ///     Red,
+    ///     Green,
+    ///     Blue,
+    /// }
+    ///
+    /// let table = EnumTable::<Color, &str, { Color::COUNT }>::new_with_fn(|color| match color {
+    ///     Color::Red => "red",
+    ///     Color::Green => "green",
+    ///     Color::Blue => "blue",
+    /// });
+    ///
+    /// let vec = table.into_vec();
+    /// assert!(vec.contains(&(Color::Red, "red")));
+    /// assert!(vec.contains(&(Color::Green, "green")));
+    /// assert!(vec.contains(&(Color::Blue, "blue")));
+    /// assert_eq!(vec.len(), 3);
+    /// ```
+    pub fn into_vec(self) -> Vec<(K, V)> {
+        self.table
+            .into_iter()
+            .map(|(discriminant, value)| (copy_from_usize(&discriminant), value))
+            .collect()
+    }
+
+    /// Creates an `EnumTable` from a `Vec` of key-value pairs.
+    ///
+    /// Returns an error if the vector doesn't contain exactly one entry for each enum variant.
+    ///
+    /// # Arguments
+    ///
+    /// * `vec` - A vector containing key-value pairs for each enum variant.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use enum_table::{EnumTable, Enumable};
+    ///
+    /// #[derive(Enumable, Debug, PartialEq, Copy, Clone)]
+    /// enum Color {
+    ///     Red,
+    ///     Green,
+    ///     Blue,
+    /// }
+    ///
+    /// let vec = vec![
+    ///     (Color::Red, "red"),
+    ///     (Color::Green, "green"),
+    ///     (Color::Blue, "blue"),
+    /// ];
+    ///
+    /// let table = EnumTable::<Color, &str, { Color::COUNT }>::from_vec(vec).unwrap();
+    /// assert_eq!(table.get(&Color::Red), &"red");
+    /// assert_eq!(table.get(&Color::Green), &"green");
+    /// assert_eq!(table.get(&Color::Blue), &"blue");
+    /// ```
+    pub fn from_vec(mut vec: Vec<(K, V)>) -> Result<Self, EnumTableFromVecError<K>> {
+        if vec.len() != N {
+            return Err(EnumTableFromVecError::InvalidSize {
+                expected: N,
+                found: vec.len(),
+            });
+        }
+
+        let mut builder = builder::EnumTableBuilder::<K, V, N>::new();
+
+        // Check that all variants are present and move values out
+        for variant in K::VARIANTS {
+            if let Some(pos) = vec
+                .iter()
+                .position(|(k, _)| to_usize(k) == to_usize(variant))
+            {
+                let (_, value) = vec.swap_remove(pos);
+                builder.push(variant, value);
+            } else {
+                return Err(EnumTableFromVecError::MissingVariant(copy_variant(variant)));
+            }
+        }
+
+        Ok(builder.build_to())
+    }
 }
 
 mod dev_macros {
     macro_rules! use_variant_value {
         ($self:ident, $variant:ident, $i:ident,{$($tt:tt)+}) => {
-            let discriminant = crate::intrinsics::to_usize($variant);
+            let discriminant = to_usize($variant);
 
             let mut $i = 0;
             while $i < $self.table.len() {
@@ -443,5 +604,88 @@ mod tests {
                 (&Color::Blue, &"Changed Blue")
             ]
         );
+    }
+
+    #[test]
+    fn map() {
+        let table = EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
+            Color::Red => 1,
+            Color::Green => 2,
+            Color::Blue => 3,
+        });
+
+        let doubled = table.map(|x| x * 2);
+        assert_eq!(doubled.get(&Color::Red), &2);
+        assert_eq!(doubled.get(&Color::Green), &4);
+        assert_eq!(doubled.get(&Color::Blue), &6);
+    }
+
+    #[test]
+    fn into_vec() {
+        let table = TABLES;
+        let vec = table.into_vec();
+
+        assert_eq!(vec.len(), 3);
+        assert!(vec.contains(&(Color::Red, "Red")));
+        assert!(vec.contains(&(Color::Green, "Green")));
+        assert!(vec.contains(&(Color::Blue, "Blue")));
+    }
+
+    #[test]
+    fn from_vec() {
+        let vec = vec![
+            (Color::Red, "Red"),
+            (Color::Green, "Green"),
+            (Color::Blue, "Blue"),
+        ];
+
+        let table = EnumTable::<Color, &str, { Color::COUNT }>::from_vec(vec).unwrap();
+        assert_eq!(table.get(&Color::Red), &"Red");
+        assert_eq!(table.get(&Color::Green), &"Green");
+        assert_eq!(table.get(&Color::Blue), &"Blue");
+    }
+
+    #[test]
+    fn from_vec_invalid_size() {
+        let vec = vec![
+            (Color::Red, "Red"),
+            (Color::Green, "Green"),
+            // Missing Blue
+        ];
+
+        let result = EnumTable::<Color, &str, { Color::COUNT }>::from_vec(vec);
+        assert_eq!(
+            result,
+            Err(crate::EnumTableFromVecError::InvalidSize {
+                expected: 3,
+                found: 2
+            })
+        );
+    }
+
+    #[test]
+    fn from_vec_missing_variant() {
+        let vec = vec![
+            (Color::Red, "Red"),
+            (Color::Green, "Green"),
+            (Color::Red, "Duplicate Red"), // Duplicate instead of Blue
+        ];
+
+        let result = EnumTable::<Color, &str, { Color::COUNT }>::from_vec(vec);
+        assert_eq!(
+            result,
+            Err(crate::EnumTableFromVecError::MissingVariant(Color::Blue))
+        );
+    }
+
+    #[test]
+    fn conversion_roundtrip() {
+        let original = TABLES;
+        let vec = original.into_vec();
+        let reconstructed = EnumTable::<Color, &str, { Color::COUNT }>::from_vec(vec).unwrap();
+
+        assert_eq!(reconstructed.get(&Color::Red), &"Red");
+        assert_eq!(reconstructed.get(&Color::Green), &"Green");
+        assert_eq!(reconstructed.get(&Color::Blue), &"Blue");
     }
 }

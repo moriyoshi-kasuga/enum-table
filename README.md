@@ -74,6 +74,41 @@ fn main() {
 }
 ```
 
+### Conversion Methods
+
+EnumTable provides convenient methods for transforming and converting data:
+
+```rust
+use enum_table::{EnumTable, Enumable};
+
+#[derive(Enumable, Debug, PartialEq, Copy, Clone)]
+enum Color {
+    Red,
+    Green,
+    Blue,
+}
+
+fn main() {
+    let table = EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
+        Color::Red => 1,
+        Color::Green => 2,
+        Color::Blue => 3,
+    });
+
+    // Transform values with map
+    let doubled = table.map(|x| x * 2);
+    assert_eq!(doubled.get(&Color::Red), &2);
+
+    // Convert to vector
+    let vec = doubled.into_vec();
+    assert!(vec.contains(&(Color::Red, 2)));
+
+    // Convert back from vector
+    let restored = EnumTable::<Color, i32, { Color::COUNT }>::from_vec(vec).unwrap();
+    assert_eq!(restored.get(&Color::Red), &2);
+}
+```
+
 ### Serde Support
 
 Enable serde support by adding the `serde` feature:
@@ -85,8 +120,8 @@ serde_json = "1.0"
 ```
 
 ```rust
-#![cfg(feature = "serde")]
-
+# #[cfg(all(feature = "serde", feature = "derive"))]
+# fn main() {
 use enum_table::{EnumTable, Enumable};
 use serde::{Serialize, Deserialize};
 
@@ -97,23 +132,24 @@ enum Status {
     Pending,
 }
 
-fn main() {
-  let table = EnumTable::<Status, &'static str, { Status::COUNT }>::new_with_fn(|status| match status {
-      Status::Active => "running",
-      Status::Inactive => "stopped", 
-      Status::Pending => "waiting",
-  });
+let table = EnumTable::<Status, &'static str, { Status::COUNT }>::new_with_fn(|status| match status {
+    Status::Active => "running",
+    Status::Inactive => "stopped", 
+    Status::Pending => "waiting",
+});
 
-  const JSON_FIXED: &str = r#"{"Active":"running","Inactive":"stopped","Pending":"waiting"}"#;
+const JSON_FIXED: &str = r#"{"Active":"running","Inactive":"stopped","Pending":"waiting"}"#;
 
-  let json = serde_json::to_string(&table).unwrap();
-  assert_eq!(json, JSON_FIXED);
+let json = serde_json::to_string(&table).unwrap();
+assert_eq!(json, JSON_FIXED);
 
-  let deserialized: EnumTable<Status, &str, { Status::COUNT }> = 
-      serde_json::from_str(&json).unwrap();
+let deserialized: EnumTable<Status, &str, { Status::COUNT }> = 
+    serde_json::from_str(&json).unwrap();
 
-  assert_eq!(table, deserialized);
-}
+assert_eq!(table, deserialized);
+# }
+# #[cfg(not(all(feature = "serde", feature = "derive")))]
+# fn main() {}
 ```
 
 ### More Methods
