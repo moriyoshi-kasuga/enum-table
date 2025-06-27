@@ -1,17 +1,17 @@
-#![cfg(feature = "derive")]
-
 use enum_table::{EnumTable, Enumable};
 
 #[derive(Debug, PartialEq, Eq, Enumable)]
 #[repr(u8)]
 pub enum Test {
     A = 100,
-    B,
-    C,
+    B = 1,
+    C = 20,
 }
 
 #[test]
 fn test() {
+    assert_eq!(Test::VARIANTS, &[Test::B, Test::C, Test::A]);
+
     let mut table = EnumTable::<Test, &'static str, { Test::COUNT }>::new_with_fn(|t| match t {
         Test::A => "A",
         Test::B => "B",

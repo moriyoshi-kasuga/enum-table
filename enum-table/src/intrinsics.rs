@@ -37,3 +37,18 @@ pub(crate) const fn to_usize<T>(t: &T) -> usize {
         _ => panic!("enum-table: Enum discriminants larger than 64 bits are not supported. This is likely due to an extremely large enum or invalid memory layout."),
     }
 }
+
+pub const fn sort_variants<const N: usize, T>(mut arr: [T; N]) -> [T; N] {
+    let mut i = 0;
+    while i < N {
+        let mut j = i + 1;
+        while j < N {
+            if to_usize(&arr[j]) < to_usize(&arr[i]) {
+                arr.swap(i, j);
+            }
+            j += 1;
+        }
+        i += 1;
+    }
+    arr
+}

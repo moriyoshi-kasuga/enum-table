@@ -7,12 +7,15 @@ pub extern crate self as enum_table;
 pub use enum_table_derive::Enumable;
 
 pub mod builder;
+mod intrinsics;
+
+pub mod __private {
+    pub use crate::intrinsics::sort_variants;
+}
 
 mod impls;
-mod intrinsics;
 mod macros;
 
-use dev_macros::*;
 use intrinsics::{copy_from_usize, copy_variant, from_usize, to_usize};
 
 /// A trait for enumerations that can be used with `EnumTable`.
@@ -105,14 +108,8 @@ pub struct EnumTable<K: Enumable, V, const N: usize> {
 
 impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// Creates a new `EnumTable` with the given table of discriminants and values.
-    /// Typically, you would use the [`crate::et`] macro or the [`crate::builder::EnumTableBuilder`] instead.
-    ///
-    ///
-    /// # Arguments
-    ///
-    /// * `table` - An array of tuples where each tuple contains a discriminant of
-    ///   an enumeration variant and its associated value.
-    pub const fn new(table: [(usize, V); N]) -> Self {
+    /// Typically, you would use the [`crate::et`] macro or [`crate::builder::EnumTableBuilder`] to create an `EnumTable`.
+    pub(crate) const fn new(table: [(usize, V); N]) -> Self {
         Self {
             table,
             _phantom: core::marker::PhantomData,
@@ -194,15 +191,31 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
         Ok(builder.build_to())
     }
 
+    pub(crate) const fn binary_search(&self, variant: &K) -> usize {
+        let discriminant = to_usize(variant);
+        let mut low = 0;
+        let mut high = N;
+
+        while low < high {
+            let mid = (low + high) / 2;
+            if self.table[mid].0 < discriminant {
+                low = mid + 1;
+            } else {
+                high = mid;
+            }
+        }
+
+        low
+    }
+
     /// Returns a reference to the value associated with the given enumeration variant.
     ///
     /// # Arguments
     ///
     /// * `variant` - A reference to an enumeration variant.
     pub const fn get(&self, variant: &K) -> &V {
-        use_variant_value!(self, variant, i, {
-            return &self.table[i].1;
-        });
+        let idx = self.binary_search(variant);
+        &self.table[idx].1
     }
 
     /// Returns a mutable reference to the value associated with the given enumeration variant.
@@ -211,9 +224,8 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     ///
     /// * `variant` - A reference to an enumeration variant.
     pub const fn get_mut(&mut self, variant: &K) -> &mut V {
-        use_variant_value!(self, variant, i, {
-            return &mut self.table[i].1;
-        });
+        let idx = self.binary_search(variant);
+        &mut self.table[idx].1
     }
 
     /// Sets the value associated with the given enumeration variant.
@@ -225,9 +237,8 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// # Returns
     /// The old value associated with the variant.
     pub const fn set(&mut self, variant: &K, value: V) -> V {
-        use_variant_value!(self, variant, i, {
-            return core::mem::replace(&mut self.table[i].1, value);
-        });
+        let idx = self.binary_search(variant);
+        core::mem::replace(&mut self.table[idx].1, value)
     }
 
     /// Returns the number of generic N
@@ -448,34 +459,15 @@ impl<K: Enumable, V: Default, const N: usize> EnumTable<K, V, N> {
     }
 }
 
-mod dev_macros {
-    macro_rules! use_variant_value {
-        ($self:ident, $variant:ident, $i:ident,{$($tt:tt)+}) => {
-            let discriminant = to_usize($variant);
-
-            let mut $i = 0;
-            while $i < $self.table.len() {
-                if $self.table[$i].0 == discriminant {
-                    $($tt)+
-                }
-                $i += 1;
-            }
-            unreachable!();
-        };
-    }
-
-    pub(super) use use_variant_value;
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Enumable)]
     enum Color {
-        Red,
-        Green,
-        Blue,
+        Red = 33,
+        Green = 11,
+        Blue = 222,
     }
 
     const TABLES: EnumTable<Color, &'static str, { Color::COUNT }> =
@@ -603,13 +595,13 @@ mod tests {
     #[test]
     fn keys() {
         let keys: Vec<_> = TABLES.keys().collect();
-        assert_eq!(keys, vec![&Color::Red, &Color::Green, &Color::Blue]);
+        assert_eq!(keys, vec![&Color::Green, &Color::Red, &Color::Blue]);
     }
 
     #[test]
     fn values() {
         let values: Vec<_> = TABLES.values().collect();
-        assert_eq!(values, vec![&"Red", &"Green", &"Blue"]);
+        assert_eq!(values, vec![&"Green", &"Red", &"Blue"]);
     }
 
     #[test]
@@ -618,8 +610,8 @@ mod tests {
         assert_eq!(
             iter,
             vec![
-                (&Color::Red, &"Red"),
                 (&Color::Green, &"Green"),
+                (&Color::Red, &"Red"),
                 (&Color::Blue, &"Blue")
             ]
         );
@@ -639,8 +631,8 @@ mod tests {
         assert_eq!(
             iter,
             vec![
-                (&Color::Red, &"Changed Red"),
                 (&Color::Green, &"Changed Green"),
+                (&Color::Red, &"Changed Red"),
                 (&Color::Blue, &"Changed Blue")
             ]
         );
@@ -727,5 +719,46 @@ mod tests {
         assert_eq!(reconstructed.get(&Color::Red), &"Red");
         assert_eq!(reconstructed.get(&Color::Green), &"Green");
         assert_eq!(reconstructed.get(&Color::Blue), &"Blue");
+    }
+
+    #[test]
+    fn binary_search_correct() {
+        let table = TABLES;
+        assert_eq!(table.binary_search(&Color::Red), 1);
+        assert_eq!(table.binary_search(&Color::Green), 0);
+        assert_eq!(table.binary_search(&Color::Blue), 2);
+    }
+
+    #[test]
+    fn binary_search_out_missing_order() {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        enum MissingOrder {
+            Red = 1,
+            Green = 2,
+            Blue = 3,
+            Yellow = 4,
+        }
+
+        impl Enumable for MissingOrder {
+            // Provide the variants in a different order. correct order is Green, Red, Blue, Yellow
+            const VARIANTS: &'static [Self] = &[Self::Yellow, Self::Blue, Self::Green, Self::Red];
+            const COUNT: usize = 4;
+        }
+
+        let table = EnumTable::<MissingOrder, &'static str, { MissingOrder::COUNT }>::new_with_fn(
+            |color| match color {
+                MissingOrder::Red => "Red",
+                MissingOrder::Green => "Green",
+                MissingOrder::Blue => "Blue",
+                MissingOrder::Yellow => "Yellow",
+            },
+        );
+
+        assert_ne!(table.binary_search(&MissingOrder::Red), 3);
+        assert_ne!(table.binary_search(&MissingOrder::Green), 2);
+        assert_ne!(table.binary_search(&MissingOrder::Blue), 1);
+        assert_ne!(table.binary_search(&MissingOrder::Yellow), 0);
+
+        assert_ne!(table.get(&MissingOrder::Red), &"Red");
     }
 }
