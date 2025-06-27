@@ -21,7 +21,7 @@ pub trait Enumable: Sized + 'static {
     const COUNT: usize = Self::VARIANTS.len();
 }
 
-/// Error type for `EnumTable::from_vec`.
+/// Error type for `EnumTable::try_from_vec`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EnumTableFromVecError<K> {
     /// The vector has an invalid size.
@@ -370,12 +370,12 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     ///     (Color::Blue, "blue"),
     /// ];
     ///
-    /// let table = EnumTable::<Color, &str, { Color::COUNT }>::from_vec(vec).unwrap();
+    /// let table = EnumTable::<Color, &str, { Color::COUNT }>::try_from_vec(vec).unwrap();
     /// assert_eq!(table.get(&Color::Red), &"red");
     /// assert_eq!(table.get(&Color::Green), &"green");
     /// assert_eq!(table.get(&Color::Blue), &"blue");
     /// ```
-    pub fn from_vec(mut vec: Vec<(K, V)>) -> Result<Self, EnumTableFromVecError<K>> {
+    pub fn try_from_vec(mut vec: Vec<(K, V)>) -> Result<Self, EnumTableFromVecError<K>> {
         if vec.len() != N {
             return Err(EnumTableFromVecError::InvalidSize {
                 expected: N,
@@ -673,28 +673,28 @@ mod tests {
     }
 
     #[test]
-    fn from_vec() {
+    fn try_from_vec() {
         let vec = vec![
             (Color::Red, "Red"),
             (Color::Green, "Green"),
             (Color::Blue, "Blue"),
         ];
 
-        let table = EnumTable::<Color, &str, { Color::COUNT }>::from_vec(vec).unwrap();
+        let table = EnumTable::<Color, &str, { Color::COUNT }>::try_from_vec(vec).unwrap();
         assert_eq!(table.get(&Color::Red), &"Red");
         assert_eq!(table.get(&Color::Green), &"Green");
         assert_eq!(table.get(&Color::Blue), &"Blue");
     }
 
     #[test]
-    fn from_vec_invalid_size() {
+    fn try_from_vec_invalid_size() {
         let vec = vec![
             (Color::Red, "Red"),
             (Color::Green, "Green"),
             // Missing Blue
         ];
 
-        let result = EnumTable::<Color, &str, { Color::COUNT }>::from_vec(vec);
+        let result = EnumTable::<Color, &str, { Color::COUNT }>::try_from_vec(vec);
         assert_eq!(
             result,
             Err(crate::EnumTableFromVecError::InvalidSize {
@@ -705,14 +705,14 @@ mod tests {
     }
 
     #[test]
-    fn from_vec_missing_variant() {
+    fn try_from_vec_missing_variant() {
         let vec = vec![
             (Color::Red, "Red"),
             (Color::Green, "Green"),
             (Color::Red, "Duplicate Red"), // Duplicate instead of Blue
         ];
 
-        let result = EnumTable::<Color, &str, { Color::COUNT }>::from_vec(vec);
+        let result = EnumTable::<Color, &str, { Color::COUNT }>::try_from_vec(vec);
         assert_eq!(
             result,
             Err(crate::EnumTableFromVecError::MissingVariant(Color::Blue))
@@ -723,7 +723,7 @@ mod tests {
     fn conversion_roundtrip() {
         let original = TABLES;
         let vec = original.into_vec();
-        let reconstructed = EnumTable::<Color, &str, { Color::COUNT }>::from_vec(vec).unwrap();
+        let reconstructed = EnumTable::<Color, &str, { Color::COUNT }>::try_from_vec(vec).unwrap();
 
         assert_eq!(reconstructed.get(&Color::Red), &"Red");
         assert_eq!(reconstructed.get(&Color::Green), &"Green");

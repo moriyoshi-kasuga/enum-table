@@ -104,7 +104,7 @@ fn main() {
     assert!(vec.contains(&(Color::Red, 2)));
 
     // Convert back from vector
-    let restored = EnumTable::<Color, i32, { Color::COUNT }>::from_vec(vec).unwrap();
+    let restored = EnumTable::<Color, i32, { Color::COUNT }>::try_from_vec(vec).unwrap();
     assert_eq!(restored.get(&Color::Red), &2);
 }
 ```
