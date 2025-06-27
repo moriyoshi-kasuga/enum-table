@@ -143,16 +143,12 @@ mod tests {
 
     use super::*;
 
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Enumable)]
     #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
     enum Color {
         Red,
         Green,
         Blue,
-    }
-
-    impl Enumable for Color {
-        const VARIANTS: &'static [Self] = &[Color::Red, Color::Green, Color::Blue];
     }
 
     const TABLES: EnumTable<Color, &'static str, { Color::COUNT }> =

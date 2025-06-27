@@ -1,5 +1,8 @@
 #![doc = include_str!(concat!("../", core::env!("CARGO_PKG_README")))]
 
+#[cfg(test)]
+pub extern crate self as enum_table;
+
 #[cfg(feature = "derive")]
 pub use enum_table_derive::Enumable;
 
@@ -468,15 +471,11 @@ mod dev_macros {
 mod tests {
     use super::*;
 
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Enumable)]
     enum Color {
         Red,
         Green,
         Blue,
-    }
-
-    impl Enumable for Color {
-        const VARIANTS: &'static [Self] = &[Color::Red, Color::Green, Color::Blue];
     }
 
     const TABLES: EnumTable<Color, &'static str, { Color::COUNT }> =

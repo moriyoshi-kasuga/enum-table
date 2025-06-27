@@ -61,14 +61,11 @@ mod tests {
 
     #[test]
     fn et_macro() {
+        #[derive(Enumable)]
         enum Test {
             A,
             B,
             C,
-        }
-
-        impl Enumable for Test {
-            const VARIANTS: &'static [Self] = &[Test::A, Test::B, Test::C];
         }
 
         const TABLE: EnumTable<Test, &'static str, { Test::COUNT }> =

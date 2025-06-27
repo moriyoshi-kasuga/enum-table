@@ -16,15 +16,11 @@ use crate::{intrinsics::to_usize, EnumTable, Enumable};
 /// ```rust
 /// use enum_table::{EnumTable, Enumable, builder::EnumTableBuilder,};
 ///
-/// #[derive(Debug)]
+/// #[derive(Debug, Enumable)]
 /// enum Test {
 ///     A,
 ///     B,
 ///     C,
-/// }
-///
-/// impl Enumable for Test {
-///     const VARIANTS: &'static [Self] = &[Test::A, Test::B, Test::C];
 /// }
 ///
 /// const TABLE: EnumTable<Test, &'static str, { Test::COUNT }> = {
@@ -138,14 +134,11 @@ mod tests {
 
     #[test]
     fn builder() {
+        #[derive(Enumable)]
         enum Test {
             A,
             B,
             C,
-        }
-
-        impl Enumable for Test {
-            const VARIANTS: &'static [Self] = &[Test::A, Test::B, Test::C];
         }
 
         const TABLE: EnumTable<Test, &'static str, { Test::COUNT }> = {
