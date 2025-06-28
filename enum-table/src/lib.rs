@@ -747,6 +747,32 @@ mod tests {
         assert_eq!(table.binary_search(&Color::Blue), 2);
     }
 
+    macro_rules! run_variants_test {
+        ($($variant:ident),+) => {{
+            #[derive(Debug, Clone, Copy, PartialEq, Eq, Enumable)]
+            #[repr(u8)]
+            enum Test {
+                $($variant,)*
+            }
+
+            let map = EnumTable::<Test, &'static str, { Test::COUNT }>::new_with_fn(|t| match t {
+                $(Test::$variant => stringify!($variant),)*
+            });
+            $(
+                assert_eq!(map.get(&Test::$variant), &stringify!($variant));
+            )*
+        }};
+    }
+
+    #[test]
+    fn binary_search_correct_variants() {
+        run_variants_test!(A);
+        run_variants_test!(A, B);
+        run_variants_test!(A, B, C);
+        run_variants_test!(A, B, C, D);
+        run_variants_test!(A, B, C, D, E);
+    }
+
     #[test]
     fn binary_search_out_missing_order() {
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
