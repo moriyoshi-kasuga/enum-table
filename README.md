@@ -28,7 +28,7 @@ To enable additional features:
 enum-table = { version = "0.4", features = ["serde"] }
 ```
 
-*Requires Rust 1.80 or later.*
+*Requires Rust 1.85 or later.*
 
 ## Features at a Glance
 

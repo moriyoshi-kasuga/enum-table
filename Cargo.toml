@@ -5,7 +5,7 @@ resolver = "2"
 [workspace.package]
 version = "0.4.2"
 edition = "2021"
-rust-version = "1.80"
+rust-version = "1.85"
 description = "A library for creating tables with enums as key."
 authors = ["Moriyoshi Kasuga <moriyoshi.kasuga1218@gmail.com>"]
 repository = "https://github.com/moriyoshi-kasuga/enum-table"
