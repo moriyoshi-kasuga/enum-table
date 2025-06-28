@@ -439,6 +439,21 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, Option<V>, N> {
     }
 }
 
+impl<K: Enumable, V: Copy, const N: usize> EnumTable<K, V, N> {
+    pub const fn new_fill_with_copy(value: V) -> Self {
+        let mut builder = builder::EnumTableBuilder::<K, V, N>::new();
+
+        let mut i = 0;
+        while i < N {
+            let variant = &K::VARIANTS[i];
+            builder.push(variant, value);
+            i += 1;
+        }
+
+        builder.build_to()
+    }
+}
+
 impl<K: Enumable, V: Default, const N: usize> EnumTable<K, V, N> {
     /// Creates a new `EnumTable` with default values for each variant.
     ///
