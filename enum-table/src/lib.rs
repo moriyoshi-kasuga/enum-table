@@ -197,7 +197,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
         let mut high = N;
 
         while low < high {
-            let mid = (low + high) / 2;
+            let mid = low + (high - low) / 2;
             if self.table[mid].0 < discriminant {
                 low = mid + 1;
             } else {
