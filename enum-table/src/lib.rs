@@ -418,11 +418,14 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
 
 impl<K: Enumable, V, const N: usize> EnumTable<K, Option<V>, N> {
     /// Creates a new `EnumTable` with `None` values for each variant.
-    pub fn new_fill_with_none() -> Self {
+    pub const fn new_fill_with_none() -> Self {
         let mut builder = builder::EnumTableBuilder::<K, Option<V>, N>::new();
 
-        for variant in K::VARIANTS {
+        let mut i = 0;
+        while i < N {
+            let variant = &K::VARIANTS[i];
             builder.push(variant, None);
+            i += 1;
         }
 
         builder.build_to()
