@@ -177,14 +177,14 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     ///
     /// * `Ok(Self)` if all variants succeed.
     /// * `Err(variant)` if any variant fails, containing the failing variant.
-    pub fn checked_new_with_fn(mut f: impl FnMut(&K) -> Option<V>) -> Result<Self, &'static K> {
+    pub fn checked_new_with_fn(mut f: impl FnMut(&K) -> Option<V>) -> Result<Self, K> {
         let mut builder = builder::EnumTableBuilder::<K, V, N>::new();
 
         for variant in K::VARIANTS {
             if let Some(value) = f(variant) {
                 builder.push(variant, value);
             } else {
-                return Err(variant);
+                return Err(copy_variant(variant));
             }
         }
 
@@ -554,7 +554,7 @@ mod tests {
         assert!(error_table.is_err());
         let variant = error_table.unwrap_err();
 
-        assert_eq!(variant, &Color::Green);
+        assert_eq!(variant, Color::Green);
     }
 
     #[test]
