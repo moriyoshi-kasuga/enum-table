@@ -47,35 +47,33 @@ enum Test {
     C,       // Will be 2 (previous value + 1)
 }
 
-fn main() {
-    // Compile-time table creation using the et! macro
-    static TABLE: EnumTable<Test, &'static str, { Test::COUNT }> = 
-      enum_table::et!(Test, &'static str, |t| match t {
-          Test::A => "A",
-          Test::B => "B",
-          Test::C => "C",
-      });
+// Compile-time table creation using the et! macro
+static TABLE: EnumTable<Test, &'static str, { Test::COUNT }> = 
+  enum_table::et!(Test, &'static str, |t| match t {
+      Test::A => "A",
+      Test::B => "B",
+      Test::C => "C",
+  });
 
-    // Accessing values from the compile-time table
-    const A: &str = TABLE.get(&Test::A);
-    assert_eq!(A, "A");
+// Accessing values from the compile-time table
+const A: &str = TABLE.get(&Test::A);
+assert_eq!(A, "A");
 
-    // Runtime table creation
-    let mut table = EnumTable::<Test, &'static str, { Test::COUNT }>::new_with_fn(
-      |t| match t {
-        Test::A => "A",
-        Test::B => "B",
-        Test::C => "C",
-    });
+// Runtime table creation
+let mut table = EnumTable::<Test, &'static str, { Test::COUNT }>::new_with_fn(
+  |t| match t {
+    Test::A => "A",
+    Test::B => "B",
+    Test::C => "C",
+});
 
-    assert_eq!(table.get(&Test::A), &"A");
+assert_eq!(table.get(&Test::A), &"A");
 
-    // This call returns the old value as all enum variants are initialized
-    let old_b = table.set(&Test::B, "Changed B");
-  
-    assert_eq!(old_b, "B");
-    assert_eq!(table.get(&Test::B), &"Changed B");
-}
+// This call returns the old value as all enum variants are initialized
+let old_b = table.set(&Test::B, "Changed B");
+
+assert_eq!(old_b, "B");
+assert_eq!(table.get(&Test::B), &"Changed B");
 ```
 
 ### Serde Support
@@ -99,23 +97,21 @@ enum Status {
     Pending,
 }
 
-fn main() {
-  let table = EnumTable::<Status, &'static str, { Status::COUNT }>::new_with_fn(|status| match status {
-      Status::Active => "running",
-      Status::Inactive => "stopped", 
-      Status::Pending => "waiting",
-  });
+let table = EnumTable::<Status, &'static str, { Status::COUNT }>::new_with_fn(|status| match status {
+    Status::Active => "running",
+    Status::Inactive => "stopped", 
+    Status::Pending => "waiting",
+});
 
-  // Serialize to JSON
-  let json = serde_json::to_string(&table).unwrap();
-  assert_eq!(json, r#"{"Active":"running","Inactive":"stopped","Pending":"waiting"}"#);
+// Serialize to JSON
+let json = serde_json::to_string(&table).unwrap();
+assert_eq!(json, r#"{"Active":"running","Inactive":"stopped","Pending":"waiting"}"#);
 
-  // Deserialize from JSON
-  let deserialized: EnumTable<Status, &str, { Status::COUNT }> = 
-      serde_json::from_str(&json).unwrap();
+// Deserialize from JSON
+let deserialized: EnumTable<Status, &str, { Status::COUNT }> = 
+    serde_json::from_str(&json).unwrap();
 
-  assert_eq!(table, deserialized);
-}
+assert_eq!(table, deserialized);
 ```
 
 ### Error Handling
