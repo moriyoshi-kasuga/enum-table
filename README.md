@@ -12,6 +12,8 @@
 It provides a fast, type-safe, and allocation-free alternative to using `HashMap` for enum keys,
 with compile-time safety and logarithmic-time access.
 
+See [CHANGELOG](./CHANGELOG.md) for version history and recent updates.
+
 ## Installation
 
 Add this to your `Cargo.toml`:
