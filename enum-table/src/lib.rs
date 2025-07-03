@@ -33,6 +33,7 @@ pub enum EnumTableFromVecError<K> {
     /// The vector has an invalid size.
     InvalidSize { expected: usize, found: usize },
     /// A required enum variant is missing from the vector.
+    /// This error happened meaning that the vector duplicated some variant
     MissingVariant(K),
 }
 
