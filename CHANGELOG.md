@@ -1,36 +1,43 @@
-# Changelog
-
-All notable changes to this project will be documented in this file.
-
 ## [unreleased]
 
-### 🚀 Features
+### Chore
 
-- Improve developer experience with compile-time variant order validation
+- Add workflow to auto-generate and commit CHANGELOG.md
+- Update markdown linter and ignore changelog
+- Release v1.1.0
+- Configure git-cliff tag pattern
 
-### 🐛 Bug Fixes
-
-- *(serde)* Remove Eq and Hash bounds from Deserialize impl
-
-### 🚜 Refactor
-
-- Remove unneccesary test
-
-### 📚 Documentation
+### Docs
 
 - *(error)* Clarify that MissingVariant implies a duplicate entry
 - Remove fn main by clippy warning
 - *(readme)* Add link to changelog
 
-### ⚙️ Miscellaneous Tasks
+### Feat
 
-- Add workflow to auto-generate and commit CHANGELOG.md
-- Update markdown linter and ignore changelog
-- Release v1.1.0
+- Improve developer experience with compile-time variant order validation
+
+### Fix
+
+- *(serde)* Remove Eq and Hash bounds from Deserialize impl
+
+### Refactor
+
+- Remove unneccesary test
 
 ## [enum-table-v1.0.0] - 2025-06-28
 
-### 🚀 Features
+### Chore
+
+- Release v1.0.0
+
+### Docs
+
+- Update typo
+- Update README.md
+- Add benchmarks
+
+### Feat
 
 - Enable serde support
 - Add convertion methods
@@ -39,7 +46,7 @@ All notable changes to this project will be documented in this file.
 - Make new_fill_with_none a const function
 - Add `new_fill_with_copy` constructor
 
-### 🐛 Bug Fixes
+### Fix
 
 - Correct implementation
 - Great error message
@@ -47,218 +54,217 @@ All notable changes to this project will be documented in this file.
 - [**breaking**] Without lifetime on checked_new_with_fn
 - Prevent integer overflow in binary search
 
-### 🚜 Refactor
+### Refactor
 
 - Rename to try_from_vec from from_vec
 - Use macro
 - Performance update. O(log n)
 
-### 📚 Documentation
-
-- Update typo
-- Update README.md
-- Add benchmarks
-
-### 🎨 Styling
+### Style
 
 - Run cargo fmt
 
-### 🧪 Testing
+### Test
 
 - Add binary_search test
 
-### ⚙️ Miscellaneous Tasks
-
-- Release v1.0.0
-
 ## [enum-table-v0.4.2] - 2025-06-13
 
-### 🚜 Refactor
+### Chore
 
-- Change to wraping
+- Release v0.4.2
 
-### 📚 Documentation
+### Docs
 
 - Update README. use recommended
 - Update optional message
 
-### ⚙️ Miscellaneous Tasks
+### Refactor
 
-- Release v0.4.2
+- Change to wraping
 
 ## [enum-table-v0.4.1] - 2025-06-02
 
-### 🚜 Refactor
+### Chore
+
+- Release v0.4.1
+
+### Docs
+
+- Update README
+
+### Refactor
 
 - Move unsafe to intrinsics mod
 - Update to_usize logic
 
-### 📚 Documentation
-
-- Update README
-
-### ⚙️ Miscellaneous Tasks
-
-- Release v0.4.1
-
 ## [enum-table-v0.4.0] - 2025-05-27
 
-### 🚀 Features
-
-- Add try_new_with_fn and checked_new_with_fn
-
-### ⚙️ Miscellaneous Tasks
+### Chore
 
 - Release 0.4.0
 
+### Feat
+
+- Add try_new_with_fn and checked_new_with_fn
+
 ## [enum-table-v0.3.2] - 2025-05-25
 
-### 🚀 Features
+### Chore
+
+- Release 0.3.2
+
+### Docs
+
+- Update README
+
+### Feat
 
 - Check the unit
 
-### 🐛 Bug Fixes
+### Fix
 
 - Pretty Debug
 - Remove Copy
 
-### 🚜 Refactor
+### Refactor
 
 - Craete from_usize fn
 
-### 📚 Documentation
-
-- Update README
-
-### 🧪 Testing
+### Test
 
 - Fix name
 - Add test of impls
 
-### ⚙️ Miscellaneous Tasks
-
-- Release 0.3.2
-
 ## [enum-table-v0.3.1] - 2025-05-24
 
-### 🚀 Features
+### Chore
+
+- Release 0.3.1
+
+### Docs
+
+- Add describe of optional
+
+### Feat
 
 - Add values_mut and add doc
 
-### 🐛 Bug Fixes
+### Fix
 
 - Remove method of discriminant
 - Bug
 
-### 📚 Documentation
-
-- Add describe of optional
-
-### 🧪 Testing
+### Test
 
 - Add
 
-### ⚙️ Miscellaneous Tasks
-
-- Release 0.3.1
-
 ## [enum-table-v0.3.0] - 2025-05-24
 
-### 🚀 Features
+### Chore
+
+- Release 0.3.0
+
+### Feat
 
 - Add method of discriminant
 - Add method of iter
 
-### 🐛 Bug Fixes
+### Fix
 
 - Remove ManuallyDrop
 
-### ⚙️ Miscellaneous Tasks
-
-- Release 0.3.0
-
 ## [enum-table-v0.2.2] - 2025-03-17
 
-### 🚀 Features
+### Chore
+
+- Release v0.2.2
+
+### Docs
+
+- Add examples and more explit doc
+
+### Feat
 
 - Impl explicit std trait
 
-### 🚜 Refactor
+### Refactor
 
 - Improve panic message on 32 bit architecture
 - Fix derive macro to simple
 - Optimize with to_usize at initialization
 
-### 📚 Documentation
-
-- Add examples and more explit doc
-
-### ⚙️ Miscellaneous Tasks
-
-- Release v0.2.2
-
 ## [enum-table-v0.2.1] - 2025-03-10
 
-### 🐛 Bug Fixes
+### Chore
+
+- Release v0.2.1
+
+### Docs
+
+- Update README
+
+### Fix
 
 - Fix import location
 - Fix impl of use_variant_value macro
 
-### 📚 Documentation
-
-- Update README
-
-### ⚙️ Miscellaneous Tasks
-
-- Release v0.2.1
-
 ## [enum-table-v0.2.0] - 2025-03-01
 
-### 🐛 Bug Fixes
-
-- Remove count expr from et macro
-
-### ⚙️ Miscellaneous Tasks
+### Chore
 
 - Release v0.2.0
 
+### Fix
+
+- Remove count expr from et macro
+
 ## [enum-table-v0.1.3] - 2025-03-01
 
-### 🐛 Bug Fixes
-
-- Return old value on set fn
-
-### 📚 Documentation
-
-- Update README
-
-### ⚙️ Miscellaneous Tasks
+### Chore
 
 - Relaese v0.1.3
 
-## [enum-table-v0.1.2] - 2025-02-27
-
-### 📚 Documentation
-
-- Fix link
-
-### ⚙️ Miscellaneous Tasks
-
-- Release v0.1.2
-
-## [enum-table-v0.1.1] - 2025-02-27
-
-### 📚 Documentation
+### Docs
 
 - Update README
 
-### ⚙️ Miscellaneous Tasks
+### Fix
+
+- Return old value on set fn
+
+## [enum-table-v0.1.2] - 2025-02-27
+
+### Chore
+
+- Release v0.1.2
+
+### Docs
+
+- Fix link
+
+## [enum-table-v0.1.1] - 2025-02-27
+
+### Chore
 
 - Update v0.1.1
 
+### Docs
+
+- Update README
+
 ## [enum-table-v0.1.0] - 2025-02-27
 
-### 🚀 Features
+### Chore
+
+- Add workspace
+
+### Docs
+
+- Add doc
+- Add README
+
+### Feat
 
 - Initialize rust
 - Add base
@@ -269,21 +275,11 @@ All notable changes to this project will be documented in this file.
 - Remove nightly
 - Add Enumable derive macro
 
-### 🐛 Bug Fixes
+### Fix
 
 - Remove maybe_uninit_array_assume_init feature
 
-### 🚜 Refactor
+### Refactor
 
 - Rename generic from T to K
 
-### 📚 Documentation
-
-- Add doc
-- Add README
-
-### ⚙️ Miscellaneous Tasks
-
-- Add workspace
-
-<!-- generated by git-cliff -->
