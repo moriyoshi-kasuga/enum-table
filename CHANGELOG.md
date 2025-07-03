@@ -1,9 +1,14 @@
-## [unreleased]
+## [enum-table-v1.1.1] - 2025-07-03
 
 ### Chore
 
 - Configure git-cliff tag pattern
 - *(lint)* Update markdownlint configuration to new format
+- Release v1.1.1
+
+### Fix
+
+- Create changelog symlink for sub-package publication
 
 ## [enum-table-v1.1.0] - 2025-07-03
 
