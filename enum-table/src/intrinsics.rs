@@ -52,3 +52,14 @@ pub const fn sort_variants<const N: usize, T>(mut arr: [T; N]) -> [T; N] {
     }
     arr
 }
+
+pub(crate) const fn is_sorted<T>(arr: &[T]) -> bool {
+    let mut i = 0;
+    while i < arr.len() - 1 {
+        if to_usize(&arr[i]) > to_usize(&arr[i + 1]) {
+            return false;
+        }
+        i += 1;
+    }
+    true
+}

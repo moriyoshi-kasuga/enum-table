@@ -25,6 +25,14 @@ use intrinsics::{copy_from_usize, copy_variant, from_usize, to_usize};
 pub trait Enumable: Sized + 'static {
     const VARIANTS: &'static [Self];
     const COUNT: usize = Self::VARIANTS.len();
+
+    const _IS_SORTED: () = const {
+        // Ensure that the variants are sorted by their discriminants.
+        // This is a compile-time check to ensure that the variants are in the correct order.
+        if !intrinsics::is_sorted(Self::VARIANTS) {
+            panic!("Enumable: variants are not sorted by discriminant. Use `enum_table::Enumable` derive macro to ensure correct ordering.");
+        }
+    };
 }
 
 /// Error type for `EnumTable::try_from_vec`.
@@ -111,6 +119,8 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// Creates a new `EnumTable` with the given table of discriminants and values.
     /// Typically, you would use the [`crate::et`] macro or [`crate::builder::EnumTableBuilder`] to create an `EnumTable`.
     pub(crate) const fn new(table: [(usize, V); N]) -> Self {
+        #[cfg(debug_assertions)]
+        let _: () = K::_IS_SORTED;
         Self {
             table,
             _phantom: core::marker::PhantomData,
@@ -764,38 +774,5 @@ mod tests {
         run_variants_test!(A, B, C);
         run_variants_test!(A, B, C, D);
         run_variants_test!(A, B, C, D, E);
-    }
-
-    #[test]
-    fn binary_search_out_missing_order() {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-        enum MissingOrder {
-            Red = 1,
-            Green = 2,
-            Blue = 3,
-            Yellow = 4,
-        }
-
-        impl Enumable for MissingOrder {
-            // Provide the variants in a different order. correct order is Green, Red, Blue, Yellow
-            const VARIANTS: &'static [Self] = &[Self::Yellow, Self::Blue, Self::Green, Self::Red];
-            const COUNT: usize = 4;
-        }
-
-        let table = EnumTable::<MissingOrder, &'static str, { MissingOrder::COUNT }>::new_with_fn(
-            |color| match color {
-                MissingOrder::Red => "Red",
-                MissingOrder::Green => "Green",
-                MissingOrder::Blue => "Blue",
-                MissingOrder::Yellow => "Yellow",
-            },
-        );
-
-        assert_ne!(table.binary_search(&MissingOrder::Red), 3);
-        assert_ne!(table.binary_search(&MissingOrder::Green), 2);
-        assert_ne!(table.binary_search(&MissingOrder::Blue), 1);
-        assert_ne!(table.binary_search(&MissingOrder::Yellow), 0);
-
-        assert_ne!(table.get(&MissingOrder::Red), &"Red");
     }
 }

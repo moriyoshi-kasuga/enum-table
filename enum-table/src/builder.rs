@@ -90,8 +90,26 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
             panic!("EnumTableBuilder: not enough elements");
         }
 
+        const fn is_sorted<const N: usize, V>(arr: &[(usize, V); N]) -> bool {
+            let mut i = 0;
+            while i < N - 1 {
+                if arr[i].0 >= arr[i + 1].0 {
+                    return false;
+                }
+                i += 1;
+            }
+            true
+        }
+
         // SAFETY: The table is filled.
-        unsafe { self.table.assume_init() }
+        let table = unsafe { self.table.assume_init() };
+
+        debug_assert!(
+            is_sorted(&table),
+            "EnumTableBuilder: elements are not sorted by discriminant. Ensure that the elements are pushed in the correct order."
+        );
+
+        table
     }
 
     /// Builds the `EnumTable` from the pushed elements.
