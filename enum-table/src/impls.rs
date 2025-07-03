@@ -75,7 +75,7 @@ where
 #[cfg(feature = "serde")]
 impl<'de, K, V, const N: usize> serde::Deserialize<'de> for EnumTable<K, V, N>
 where
-    K: Enumable + serde::Deserialize<'de> + Eq + std::hash::Hash,
+    K: Enumable + serde::Deserialize<'de> + core::fmt::Debug,
     V: serde::Deserialize<'de>,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -83,7 +83,6 @@ where
         D: serde::Deserializer<'de>,
     {
         use serde::de::{MapAccess, Visitor};
-        use std::collections::HashMap;
         use std::fmt;
         use std::marker::PhantomData;
 
@@ -93,7 +92,7 @@ where
 
         impl<'de, K, V, const N: usize> Visitor<'de> for EnumTableVisitor<K, V, N>
         where
-            K: Enumable + serde::Deserialize<'de> + Eq + std::hash::Hash,
+            K: Enumable + serde::Deserialize<'de> + core::fmt::Debug,
             V: serde::Deserialize<'de>,
         {
             type Value = EnumTable<K, V, N>;
@@ -106,28 +105,29 @@ where
             where
                 A: MapAccess<'de>,
             {
-                let mut values: HashMap<K, V> = HashMap::new();
+                use crate::EnumTableFromVecError;
+
+                let mut values: Vec<(K, V)> = Vec::with_capacity(N);
 
                 while let Some((key, value)) = map.next_entry::<K, V>()? {
-                    values.insert(key, value);
+                    values.push((key, value));
                 }
 
-                // Ensure all variants are present
-                for variant in K::VARIANTS {
-                    if !values.contains_key(variant) {
-                        return Err(serde::de::Error::missing_field("enum variant"));
+                match EnumTable::try_from_vec(values) {
+                    Ok(t) => Ok(t),
+                    Err(EnumTableFromVecError::InvalidSize { expected, found }) => {
+                        Err(serde::de::Error::invalid_length(
+                            found,
+                            &format!("expected {} entries, found {}", expected, found).as_str(),
+                        ))
+                    }
+                    Err(EnumTableFromVecError::MissingVariant(variant)) => {
+                        Err(serde::de::Error::invalid_value(
+                            serde::de::Unexpected::Str(&format!("{:?}", variant)),
+                            &"all enum variants must be present",
+                        ))
                     }
                 }
-
-                // Build the EnumTable
-                let mut builder = crate::builder::EnumTableBuilder::<K, V, N>::new();
-                for variant in K::VARIANTS {
-                    if let Some(value) = values.remove(variant) {
-                        builder.push(variant, value);
-                    }
-                }
-
-                Ok(builder.build_to())
             }
         }
 
