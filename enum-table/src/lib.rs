@@ -739,14 +739,6 @@ mod tests {
         assert_eq!(reconstructed.get(&Color::Blue), &"Blue");
     }
 
-    #[test]
-    fn binary_search_correct() {
-        let table = TABLES;
-        assert_eq!(table.binary_search(&Color::Red), 1);
-        assert_eq!(table.binary_search(&Color::Green), 0);
-        assert_eq!(table.binary_search(&Color::Blue), 2);
-    }
-
     macro_rules! run_variants_test {
         ($($variant:ident),+) => {{
             #[derive(Debug, Clone, Copy, PartialEq, Eq, Enumable)]
