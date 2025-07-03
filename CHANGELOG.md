@@ -2,10 +2,16 @@
 
 ### Chore
 
+- Configure git-cliff tag pattern
+- *(lint)* Update markdownlint configuration to new format
+
+## [enum-table-v1.1.0] - 2025-07-03
+
+### Chore
+
 - Add workflow to auto-generate and commit CHANGELOG.md
 - Update markdown linter and ignore changelog
 - Release v1.1.0
-- Configure git-cliff tag pattern
 
 ### Docs
 
