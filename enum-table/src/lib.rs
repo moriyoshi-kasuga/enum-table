@@ -49,14 +49,10 @@ impl<K: core::fmt::Debug> core::fmt::Display for EnumTableFromVecError<K> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             EnumTableFromVecError::InvalidSize { expected, found } => {
-                write!(
-                    f,
-                    "Invalid vector size: expected {}, found {}",
-                    expected, found
-                )
+                write!(f, "Invalid vector size: expected {expected}, found {found}")
             }
             EnumTableFromVecError::MissingVariant(variant) => {
-                write!(f, "Missing enum variant: {:?}", variant)
+                write!(f, "Missing enum variant: {variant:?}")
             }
         }
     }

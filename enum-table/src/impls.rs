@@ -118,12 +118,12 @@ where
                     Err(EnumTableFromVecError::InvalidSize { expected, found }) => {
                         Err(serde::de::Error::invalid_length(
                             found,
-                            &format!("expected {} entries, found {}", expected, found).as_str(),
+                            &format!("expected {expected} entries, found {found}").as_str(),
                         ))
                     }
                     Err(EnumTableFromVecError::MissingVariant(variant)) => {
                         Err(serde::de::Error::invalid_value(
-                            serde::de::Unexpected::Str(&format!("{:?}", variant)),
+                            serde::de::Unexpected::Str(&format!("{variant:?}")),
                             &"all enum variants must be present",
                         ))
                     }
@@ -168,7 +168,7 @@ mod tests {
     #[test]
     fn debug_impl() {
         assert_eq!(
-            format!("{:?}", TABLES),
+            format!("{TABLES:?}"),
             r#"{Red: "Red", Green: "Green", Blue: "Blue"}"#
         );
     }
