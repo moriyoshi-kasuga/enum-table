@@ -25,14 +25,6 @@ use intrinsics::{copy_from_usize, copy_variant, from_usize, to_usize};
 pub trait Enumable: Sized + 'static {
     const VARIANTS: &'static [Self];
     const COUNT: usize = Self::VARIANTS.len();
-
-    const _IS_SORTED: () = const {
-        // Ensure that the variants are sorted by their discriminants.
-        // This is a compile-time check to ensure that the variants are in the correct order.
-        if !intrinsics::is_sorted(Self::VARIANTS) {
-            panic!("Enumable: variants are not sorted by discriminant. Use `enum_table::Enumable` derive macro to ensure correct ordering.");
-        }
-    };
 }
 
 /// Error type for `EnumTable::try_from_vec`.
@@ -116,7 +108,14 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// Typically, you would use the [`crate::et`] macro or [`crate::builder::EnumTableBuilder`] to create an `EnumTable`.
     pub(crate) const fn new(table: [(usize, V); N]) -> Self {
         #[cfg(debug_assertions)]
-        let _: () = K::_IS_SORTED;
+        const {
+            // Ensure that the variants are sorted by their discriminants.
+            // This is a compile-time check to ensure that the variants are in the correct order.
+            if !intrinsics::is_sorted(K::VARIANTS) {
+                panic!("Enumable: variants are not sorted by discriminant. Use `enum_table::Enumable` derive macro to ensure correct ordering.");
+            }
+        }
+
         Self {
             table,
             _phantom: core::marker::PhantomData,
