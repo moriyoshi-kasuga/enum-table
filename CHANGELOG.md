@@ -1,3 +1,19 @@
+## [enum-table-v1.1.2] - 2025-07-08
+
+### Chore
+
+- Fix chnagelog to works on tag
+- Disable update changelog when push to main branch
+- Release v1.1.2
+
+### Refactor
+
+- *(const)* Defer variant sort check to EnumTable creation
+
+### Style
+
+- Fix clippy warning by 1.88.0 rule
+
 ## [enum-table-v1.1.1] - 2025-07-03
 
 ### Chore
