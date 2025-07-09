@@ -55,6 +55,7 @@ pub const fn sort_variants<const N: usize, T>(mut arr: [T; N]) -> [T; N] {
     arr
 }
 
+#[cfg(debug_assertions)]
 pub(crate) const fn is_sorted<T>(arr: &[T]) -> bool {
     let mut i = 0;
     while i < arr.len() - 1 {
