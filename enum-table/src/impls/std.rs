@@ -19,6 +19,8 @@ impl<K: Enumable, V: Clone, const N: usize> Clone for EnumTable<K, V, N> {
     }
 }
 
+impl<K: Enumable, V: Copy, const N: usize> Copy for EnumTable<K, V, N> {}
+
 impl<K: Enumable, V: PartialEq, const N: usize> PartialEq for EnumTable<K, V, N> {
     fn eq(&self, other: &Self) -> bool {
         self.table.eq(&other.table)
@@ -89,12 +91,6 @@ mod tests {
     }
 
     #[test]
-    fn clone_impl() {
-        let cloned = TABLES.clone();
-        assert_eq!(cloned, TABLES);
-    }
-
-    #[test]
     fn eq_impl() {
         assert!(TABLES == ANOTHER_TABLES);
         assert!(TABLES != EnumTable::new_with_fn(|_| "Unknown"));
@@ -127,7 +123,7 @@ mod tests {
         assert_eq!(TABLES[Color::Green], "Green");
         assert_eq!(TABLES[Color::Blue], "Blue");
 
-        let mut mutable_table = TABLES.clone();
+        let mut mutable_table = TABLES;
         mutable_table[Color::Red] = "Changed Red";
         assert_eq!(mutable_table[Color::Red], "Changed Red");
     }
