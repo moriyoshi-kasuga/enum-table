@@ -3,7 +3,7 @@ use std::{collections::HashMap, hash::Hash};
 use criterion::{Criterion, criterion_group, criterion_main};
 use enum_table::{EnumTable, Enumable};
 
-#[derive(Enumable, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Enumable, Eq, PartialEq, Hash)]
 enum Letter {
     A,
     B,

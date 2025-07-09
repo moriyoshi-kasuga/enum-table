@@ -152,7 +152,7 @@ mod tests {
 
     #[test]
     fn builder() {
-        #[derive(Enumable)]
+        #[derive(Clone, Copy, Enumable)]
         enum Test {
             A,
             B,

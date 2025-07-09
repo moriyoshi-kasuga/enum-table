@@ -1,4 +1,4 @@
-pub(crate) const fn from_usize<T>(u: &usize) -> &T {
+pub(crate) const fn cast_variant<T>(u: &usize) -> &T {
     unsafe {
         // SAFETY: This function is only called with usize values that were originally
         // derived from valid enum discriminants via to_usize(). The transmute is safe
@@ -8,13 +8,8 @@ pub(crate) const fn from_usize<T>(u: &usize) -> &T {
     }
 }
 
-pub(crate) const fn copy_variant<T>(t: &T) -> T {
-    unsafe { core::ptr::read(t) }
-}
-
-pub(crate) const fn copy_from_usize<T>(u: &usize) -> T {
-    let reference = from_usize::<T>(u);
-    copy_variant(reference)
+pub(crate) const fn into_variant<T: Copy>(u: usize) -> T {
+    *cast_variant::<T>(&u)
 }
 
 pub(crate) const fn to_usize<T>(t: &T) -> usize {

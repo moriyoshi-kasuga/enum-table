@@ -16,13 +16,13 @@ pub mod __private {
 mod impls;
 mod macros;
 
-use intrinsics::{copy_from_usize, copy_variant, from_usize, to_usize};
+use intrinsics::{cast_variant, into_variant, to_usize};
 
 /// A trait for enumerations that can be used with `EnumTable`.
 ///
 /// This trait requires that the enumeration provides a static array of its variants
 /// and a constant representing the count of these variants.
-pub trait Enumable: Sized + 'static {
+pub trait Enumable: Copy + 'static {
     const VARIANTS: &'static [Self];
     const COUNT: usize = Self::VARIANTS.len();
 }
@@ -163,7 +163,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
         for variant in K::VARIANTS {
             match f(variant) {
                 Ok(value) => builder.push(variant, value),
-                Err(e) => return Err((copy_variant(variant), e)),
+                Err(e) => return Err((*variant, e)),
             }
         }
 
@@ -192,7 +192,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
             if let Some(value) = f(variant) {
                 builder.push(variant, value);
             } else {
-                return Err(copy_variant(variant));
+                return Err(*variant);
             }
         }
 
@@ -263,7 +263,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     pub fn keys(&self) -> impl Iterator<Item = &K> {
         self.table
             .iter()
-            .map(|(discriminant, _)| from_usize(discriminant))
+            .map(|(discriminant, _)| cast_variant(discriminant))
     }
 
     /// Returns an iterator over references to the values in the table.
@@ -280,14 +280,14 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
         self.table
             .iter()
-            .map(|(discriminant, value)| (from_usize(discriminant), value))
+            .map(|(discriminant, value)| (cast_variant(discriminant), value))
     }
 
     /// Returns an iterator over mutable references to the values in the table.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (&K, &mut V)> {
         self.table
             .iter_mut()
-            .map(|(discriminant, value)| (from_usize(discriminant), value))
+            .map(|(discriminant, value)| (cast_variant(discriminant), value))
     }
 
     /// Maps the values of the table using a closure, creating a new `EnumTable` with the transformed values.
@@ -326,7 +326,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
         let mut builder = builder::EnumTableBuilder::<K, U, N>::new();
 
         for (discriminant, value) in self.table {
-            let key = from_usize(&discriminant);
+            let key = cast_variant(&discriminant);
             builder.push(key, f(value));
         }
 
@@ -362,7 +362,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     pub fn into_vec(self) -> Vec<(K, V)> {
         self.table
             .into_iter()
-            .map(|(discriminant, value)| (copy_from_usize(&discriminant), value))
+            .map(|(discriminant, value)| (into_variant(discriminant), value))
             .collect()
     }
 
@@ -416,7 +416,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
                 let (_, value) = vec.swap_remove(pos);
                 builder.push(variant, value);
             } else {
-                return Err(EnumTableFromVecError::MissingVariant(copy_variant(variant)));
+                return Err(EnumTableFromVecError::MissingVariant(*variant));
             }
         }
 

@@ -1,6 +1,6 @@
 use enum_table::{EnumTable, Enumable};
 
-#[derive(Debug, PartialEq, Eq, Enumable)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Enumable)]
 #[repr(u8)]
 pub enum Test {
     A = 100,

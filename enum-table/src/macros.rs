@@ -61,7 +61,7 @@ mod tests {
 
     #[test]
     fn et_macro() {
-        #[derive(Enumable)]
+        #[derive(Clone, Copy, Enumable)]
         enum Test {
             A,
             B,
