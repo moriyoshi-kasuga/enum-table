@@ -1,3 +1,4 @@
+#[inline(always)]
 pub(crate) const fn cast_variant<T>(u: &usize) -> &T {
     unsafe {
         // SAFETY: This function is only called with usize values that were originally
@@ -8,10 +9,12 @@ pub(crate) const fn cast_variant<T>(u: &usize) -> &T {
     }
 }
 
+#[inline(always)]
 pub(crate) const fn into_variant<T: Copy>(u: usize) -> T {
     *cast_variant::<T>(&u)
 }
 
+#[inline(always)]
 pub(crate) const fn to_usize<T>(t: &T) -> usize {
     macro_rules! as_usize {
         ($t:ident as $type:ident) => {
