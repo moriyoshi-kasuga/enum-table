@@ -32,9 +32,13 @@ pub(crate) const fn to_usize<T>(t: &T) -> usize {
         #[cfg(target_pointer_width = "64")]
         8 => as_usize!(t as u64),
         #[cfg(target_pointer_width = "32")]
-        8 => panic!("enum-table: Cannot handle 64-bit enum discriminants on 32-bit architecture. Consider using smaller discriminant values or compile for 64-bit target."),
+        8 => panic!(
+            "enum-table: Cannot handle 64-bit enum discriminants on 32-bit architecture. Consider using smaller discriminant values or compile for 64-bit target."
+        ),
 
-        _ => panic!("enum-table: Enum discriminants larger than 64 bits are not supported. This is likely due to an extremely large enum or invalid memory layout."),
+        _ => panic!(
+            "enum-table: Enum discriminants larger than 64 bits are not supported. This is likely due to an extremely large enum or invalid memory layout."
+        ),
     }
 }
 

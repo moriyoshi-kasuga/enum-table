@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::Data;
 use syn::Result;
-use syn::{parse_macro_input, DeriveInput};
+use syn::{DeriveInput, parse_macro_input};
 
 #[proc_macro_derive(Enumable)]
 pub fn derive_enumable(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -18,7 +18,7 @@ fn derive_enumable_internal(input: DeriveInput) -> Result<TokenStream> {
             return Err(syn::Error::new_spanned(
                 &input,
                 "Enumable can only be derived for enums",
-            ))
+            ));
         }
     };
 

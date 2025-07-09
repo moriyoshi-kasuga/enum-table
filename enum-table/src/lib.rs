@@ -112,7 +112,9 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
             // Ensure that the variants are sorted by their discriminants.
             // This is a compile-time check to ensure that the variants are in the correct order.
             if !intrinsics::is_sorted(K::VARIANTS) {
-                panic!("Enumable: variants are not sorted by discriminant. Use `enum_table::Enumable` derive macro to ensure correct ordering.");
+                panic!(
+                    "Enumable: variants are not sorted by discriminant. Use `enum_table::Enumable` derive macro to ensure correct ordering."
+                );
             }
         }
 

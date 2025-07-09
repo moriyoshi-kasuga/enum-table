@@ -1,6 +1,6 @@
 use std::{collections::HashMap, hash::Hash};
 
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use enum_table::{EnumTable, Enumable};
 
 #[derive(Enumable, Eq, PartialEq, Hash)]

@@ -1,6 +1,6 @@
 use core::mem::MaybeUninit;
 
-use crate::{intrinsics::to_usize, EnumTable, Enumable};
+use crate::{EnumTable, Enumable, intrinsics::to_usize};
 
 /// A builder for creating an `EnumTable` with a specified number of elements.
 ///
