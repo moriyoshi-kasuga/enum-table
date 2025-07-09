@@ -14,12 +14,6 @@ readme = "README.md"
 categories = ["data-structures"]
 keywords = ["enum", "map"]
 
-[workspace.lints.rust]
-nonstandard_style = { level = "warn", priority = -1 }
-unreachable_pub = "warn"
-unused_import_braces = "warn"
-unused_lifetimes = "warn"
-
 [workspace.lints.clippy]
 unwrap_used = "deny"
 expect_used = "deny"
