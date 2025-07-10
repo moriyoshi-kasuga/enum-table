@@ -41,7 +41,7 @@ macro_rules! et {
             let mut builder = $crate::builder::EnumTableBuilder::<$variant, $value, { <$variant as $crate::Enumable>::COUNT }>::new();
 
             let mut i = 0;
-            while i < builder.len() {
+            while i < builder.capacity() {
                 let $variable = &<$variant as $crate::Enumable>::VARIANTS[i];
                 builder.push(
                     $variable,

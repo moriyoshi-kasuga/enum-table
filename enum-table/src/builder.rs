@@ -121,12 +121,13 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
         EnumTable::new(self.build())
     }
 
-    /// Returns the number of elements the builder is expected to hold.
-    ///
-    /// # Returns
-    ///
-    /// The number of elements `N`.
+    /// Returns the number of elements pushed into the builder.
     pub const fn len(&self) -> usize {
+        self.idx
+    }
+
+    /// Returns the capacity of the builder.
+    pub const fn capacity(&self) -> usize {
         N
     }
 
@@ -163,7 +164,7 @@ mod tests {
             let mut builder = EnumTableBuilder::<Test, &'static str, { Test::COUNT }>::new();
 
             let mut i = 0;
-            while i < builder.len() {
+            while i < builder.capacity() {
                 let t = &Test::VARIANTS[i];
                 builder.push(
                     t,
