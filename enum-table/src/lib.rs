@@ -7,6 +7,7 @@ pub extern crate self as enum_table;
 pub use enum_table_derive::Enumable;
 
 pub mod builder;
+pub use builder::NotFilled;
 mod intrinsics;
 
 pub mod __private {
@@ -56,7 +57,7 @@ pub trait Enumable: Copy + 'static {
 /// ```rust
 /// use enum_table::{EnumTable, Enumable};
 ///
-/// #[derive(Enumable)]
+/// #[derive(Enumable, Copy, Clone)]
 /// enum Color {
 ///     Red,
 ///     Green,
@@ -113,10 +114,12 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
         let mut builder = builder::EnumTableBuilder::<K, V, N>::new();
 
         for variant in K::VARIANTS {
-            builder.push(variant, f(variant));
+            unsafe {
+                builder.push_unchecked(variant, f(variant));
+            }
         }
 
-        builder.build_to()
+        unsafe { builder.build_to_unchecked() }
     }
 
     /// Creates a new `EnumTable` using a function that returns a `Result` for each variant.
@@ -139,12 +142,14 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
 
         for variant in K::VARIANTS {
             match f(variant) {
-                Ok(value) => builder.push(variant, value),
+                Ok(value) => unsafe {
+                    builder.push_unchecked(variant, value);
+                },
                 Err(e) => return Err((*variant, e)),
             }
         }
 
-        Ok(builder.build_to())
+        Ok(unsafe { builder.build_to_unchecked() })
     }
 
     /// Creates a new `EnumTable` using a function that returns an `Option` for each variant.
@@ -167,13 +172,15 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
 
         for variant in K::VARIANTS {
             if let Some(value) = f(variant) {
-                builder.push(variant, value);
+                unsafe {
+                    builder.push_unchecked(variant, value);
+                }
             } else {
                 return Err(*variant);
             }
         }
 
-        Ok(builder.build_to())
+        Ok(unsafe { builder.build_to_unchecked() })
     }
 
     pub(crate) const fn binary_search(&self, variant: &K) -> usize {
@@ -278,7 +285,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// ```rust
     /// use enum_table::{EnumTable, Enumable};
     ///
-    /// #[derive(Enumable)]
+    /// #[derive(Enumable, Copy, Clone)]
     /// enum Color {
     ///     Red,
     ///     Green,
@@ -304,10 +311,12 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
 
         for (discriminant, value) in self.table {
             let key = cast_variant(&discriminant);
-            builder.push(key, f(value));
+            unsafe {
+                builder.push_unchecked(key, f(value));
+            }
         }
 
-        builder.build_to()
+        unsafe { builder.build_to_unchecked() }
     }
 }
 
@@ -319,11 +328,13 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, Option<V>, N> {
         let mut i = 0;
         while i < N {
             let variant = &K::VARIANTS[i];
-            builder.push(variant, None);
+            unsafe {
+                builder.push_unchecked(variant, None);
+            }
             i += 1;
         }
 
-        builder.build_to()
+        unsafe { builder.build_to_unchecked() }
     }
 
     /// Clears the table, setting each value to `None`.
@@ -341,11 +352,13 @@ impl<K: Enumable, V: Copy, const N: usize> EnumTable<K, V, N> {
         let mut i = 0;
         while i < N {
             let variant = &K::VARIANTS[i];
-            builder.push(variant, value);
+            unsafe {
+                builder.push_unchecked(variant, value);
+            }
             i += 1;
         }
 
-        builder.build_to()
+        unsafe { builder.build_to_unchecked() }
     }
 }
 
@@ -358,10 +371,12 @@ impl<K: Enumable, V: Default, const N: usize> EnumTable<K, V, N> {
         let mut builder = builder::EnumTableBuilder::<K, V, N>::new();
 
         for variant in K::VARIANTS {
-            builder.push(variant, V::default());
+            unsafe {
+                builder.push_unchecked(variant, V::default());
+            }
         }
 
-        builder.build_to()
+        unsafe { builder.build_to_unchecked() }
     }
 
     /// Clears the table, setting each value to its default.

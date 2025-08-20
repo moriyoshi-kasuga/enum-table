@@ -13,6 +13,7 @@
 /// ```rust
 /// use enum_table::{EnumTable, Enumable, et};
 ///
+/// #[derive(Copy, Clone)]
 /// enum Test {
 ///     A,
 ///     B,
@@ -43,14 +44,18 @@ macro_rules! et {
             let mut i = 0;
             while i < builder.capacity() {
                 let $variable = &<$variant as $crate::Enumable>::VARIANTS[i];
-                builder.push(
-                    $variable,
-                    $($tt)*
-                );
+                let value = $($tt)*;
+                let t = $variable;
+                unsafe {
+                    builder.push_unchecked(
+                        t,
+                        value,
+                    );
+                }
                 i += 1;
             }
 
-            builder.build_to()
+            unsafe { builder.build_to_unchecked() }
         }
     };
 }

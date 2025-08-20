@@ -107,13 +107,15 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
                 .position(|(k, _)| to_usize(k) == to_usize(variant))
             {
                 let (_, value) = vec.swap_remove(pos);
-                builder.push(variant, value);
+                unsafe {
+                    builder.push_unchecked(variant, value);
+                }
             } else {
                 return Err(EnumTableFromVecError::MissingVariant(*variant));
             }
         }
 
-        Ok(builder.build_to())
+        Ok(unsafe { builder.build_to_unchecked() })
     }
 }
 

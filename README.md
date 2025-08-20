@@ -41,7 +41,7 @@ enum-table = "1.0"
 ```rust
 use enum_table::{EnumTable, Enumable};
 
-#[derive(Enumable)] // Automatically implements Enumable trait
+#[derive(Enumable, Copy, Clone)] // Automatically implements Enumable trait
 #[repr(u8)] // Optional: but recommended for specification of discriminants
 enum Test {
     A = 100, // Optional: You can specify custom discriminants
@@ -89,10 +89,12 @@ serde_json = "1.0"
 ```
 
 ```rust
+# #[cfg(feature = "serde")]
+# {
 use enum_table::{EnumTable, Enumable};
 use serde::{Serialize, Deserialize};
   
-#[derive(Debug, Enumable, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Enumable, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 enum Status {
     Active,
     Inactive,
@@ -114,6 +116,7 @@ let deserialized: EnumTable<Status, &str, { Status::COUNT }> =
     serde_json::from_str(&json).unwrap();
 
 assert_eq!(table, deserialized);
+# }
 ```
 
 ### Error Handling
@@ -123,7 +126,7 @@ The library provides methods for handling potential errors during table creation
 ```rust
 use enum_table::{EnumTable, Enumable};
 
-#[derive(Enumable, Debug, PartialEq)]
+#[derive(Enumable, Copy, Clone, Debug, PartialEq)]
 enum Color {
     Red,
     Green,
