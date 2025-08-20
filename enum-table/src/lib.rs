@@ -7,7 +7,6 @@ pub extern crate self as enum_table;
 pub use enum_table_derive::Enumable;
 
 pub mod builder;
-pub use builder::NotFilled;
 mod intrinsics;
 
 pub mod __private {
