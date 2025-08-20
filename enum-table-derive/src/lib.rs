@@ -12,22 +12,20 @@ pub fn derive_enumable(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
 }
 
 fn derive_enumable_internal(input: DeriveInput) -> Result<TokenStream> {
-    let variants = match &input.data {
-        Data::Enum(data) => &data.variants,
-        _ => {
-            return Err(syn::Error::new_spanned(
-                &input,
-                "Enumable can only be derived for enums",
-            ));
-        }
+    let Data::Enum(data_enum) = input.data else {
+        return Err(syn::Error::new_spanned(
+            &input,
+            "Enumable can only be derived for enums",
+        ));
     };
 
-    let variants = variants
+    let variant_idents = data_enum
+        .variants
         .iter()
         .map(|v| {
             if !matches!(v.fields, syn::Fields::Unit) {
                 return Err(syn::Error::new_spanned(
-                    v,
+                    &v.fields,
                     "Enumable can only be derived for unit variants",
                 ));
             }
@@ -38,7 +36,7 @@ fn derive_enumable_internal(input: DeriveInput) -> Result<TokenStream> {
     let ident = &input.ident;
     let expanded = quote! {
         impl enum_table::Enumable for #ident {
-            const VARIANTS: &'static [#ident] = &enum_table::__private::sort_variants([#(Self::#variants),*]);
+            const VARIANTS: &'static [#ident] = &enum_table::__private::sort_variants([#(Self::#variant_idents),*]);
         }
     };
 
