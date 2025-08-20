@@ -41,14 +41,12 @@ pub(crate) const fn to_usize<T>(t: &T) -> usize {
 }
 
 pub const fn sort_variants<const N: usize, T>(mut arr: [T; N]) -> [T; N] {
-    let mut i = 0;
+    let mut i = 1;
     while i < N {
-        let mut j = i + 1;
-        while j < N {
-            if to_usize(&arr[j]) < to_usize(&arr[i]) {
-                arr.swap(i, j);
-            }
-            j += 1;
+        let mut j = i;
+        while j > 0 && to_usize(&arr[j]) < to_usize(&arr[j - 1]) {
+            arr.swap(j, j - 1);
+            j -= 1;
         }
         i += 1;
     }
