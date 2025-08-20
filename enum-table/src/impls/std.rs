@@ -1,4 +1,4 @@
-use std::ops::{Index, IndexMut};
+use core::ops::{Index, IndexMut};
 
 use crate::{EnumTable, Enumable};
 
@@ -29,8 +29,8 @@ impl<K: Enumable, V: PartialEq, const N: usize> PartialEq for EnumTable<K, V, N>
 
 impl<K: Enumable, V: Eq, const N: usize> Eq for EnumTable<K, V, N> {}
 
-impl<K: Enumable, V: std::hash::Hash, const N: usize> std::hash::Hash for EnumTable<K, V, N> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+impl<K: Enumable, V: core::hash::Hash, const N: usize> core::hash::Hash for EnumTable<K, V, N> {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.table.hash(state);
     }
 }
@@ -57,7 +57,7 @@ impl<K: Enumable, V, const N: usize> IndexMut<K> for EnumTable<K, V, N> {
 
 #[cfg(test)]
 mod tests {
-    use std::hash::{Hash, Hasher};
+    use core::hash::{Hash, Hasher};
 
     use super::*;
 
