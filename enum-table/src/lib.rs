@@ -272,51 +272,6 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
             .iter_mut()
             .map(|(discriminant, value)| (cast_variant(discriminant), value))
     }
-
-    /// Maps the values of the table using a closure, creating a new `EnumTable` with the transformed values.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - A closure that takes a value and returns a transformed value.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use enum_table::{EnumTable, Enumable};
-    ///
-    /// #[derive(Enumable, Copy, Clone)]
-    /// enum Color {
-    ///     Red,
-    ///     Green,
-    ///     Blue,
-    /// }
-    ///
-    /// let table = EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
-    ///     Color::Red => 1,
-    ///     Color::Green => 2,
-    ///     Color::Blue => 3,
-    /// });
-    ///
-    /// let doubled = table.map(|x| x * 2);
-    /// assert_eq!(doubled.get(&Color::Red), &2);
-    /// assert_eq!(doubled.get(&Color::Green), &4);
-    /// assert_eq!(doubled.get(&Color::Blue), &6);
-    /// ```
-    pub fn map<U, F>(self, mut f: F) -> EnumTable<K, U, N>
-    where
-        F: FnMut(V) -> U,
-    {
-        let mut builder = builder::EnumTableBuilder::<K, U, N>::new();
-
-        for (discriminant, value) in self.table {
-            let key = cast_variant(&discriminant);
-            unsafe {
-                builder.push_unchecked(key, f(value));
-            }
-        }
-
-        unsafe { builder.build_to_unchecked() }
-    }
 }
 
 impl<K: Enumable, V, const N: usize> EnumTable<K, Option<V>, N> {
@@ -563,20 +518,6 @@ mod tests {
                 (&Color::Blue, &"Changed Blue")
             ]
         );
-    }
-
-    #[test]
-    fn map() {
-        let table = EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
-            Color::Red => 1,
-            Color::Green => 2,
-            Color::Blue => 3,
-        });
-
-        let doubled = table.map(|x| x * 2);
-        assert_eq!(doubled.get(&Color::Red), &2);
-        assert_eq!(doubled.get(&Color::Green), &4);
-        assert_eq!(doubled.get(&Color::Blue), &6);
     }
 
     macro_rules! run_variants_test {
