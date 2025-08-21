@@ -37,9 +37,9 @@
 ///
 #[macro_export]
 macro_rules! et {
-    ($variant:ty, $value:ty, |$variable:ident| $($tt:tt)*) => {
+    ($variant:ty, $value:ty, $COUNT:block, |$variable:ident| $($tt:tt)*) => {
         {
-            let mut builder = $crate::builder::EnumTableBuilder::<$variant, $value, { <$variant as $crate::Enumable>::COUNT }>::new();
+            let mut builder = $crate::builder::EnumTableBuilder::<$variant, $value, $COUNT>::new();
 
             let mut i = 0;
             while i < builder.capacity() {
@@ -57,6 +57,9 @@ macro_rules! et {
 
             unsafe { builder.build_to_unchecked() }
         }
+    };
+    ($variant:ty, $value:ty, |$variable:ident| $($tt:tt)*) => {
+        $crate::et!($variant, $value, { <$variant as $crate::Enumable>::COUNT }, |$variable| $($tt)*)
     };
 }
 

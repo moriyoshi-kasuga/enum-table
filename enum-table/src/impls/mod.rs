@@ -1,6 +1,9 @@
 #[cfg(feature = "std")]
 mod std;
 
+#[cfg(feature = "std")]
+mod map;
+
 #[cfg(feature = "alloc")]
 mod vec;
 #[cfg(feature = "alloc")]
