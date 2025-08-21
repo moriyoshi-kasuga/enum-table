@@ -27,9 +27,8 @@ where
     where
         D: serde::Deserializer<'de>,
     {
+        use core::marker::PhantomData;
         use serde::de::{MapAccess, Visitor};
-        use std::fmt;
-        use std::marker::PhantomData;
 
         struct EnumTableVisitor<K, V, const N: usize> {
             _phantom: PhantomData<(K, V)>,
@@ -42,7 +41,7 @@ where
         {
             type Value = EnumTable<K, V, N>;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
                 formatter.write_str("a map with all enum variants as keys")
             }
 
