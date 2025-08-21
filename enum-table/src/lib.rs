@@ -260,6 +260,33 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, Option<V>, N> {
 }
 
 impl<K: Enumable, V: Copy, const N: usize> EnumTable<K, V, N> {
+    /// Creates a new `EnumTable` with the same copied value for each variant.
+    ///
+    /// This method initializes the table with the same value for each
+    /// variant of the enumeration. The value must implement `Copy`.
+    ///
+    /// # Arguments
+    ///
+    /// * `value` - The value to copy for each enum variant.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use enum_table::{EnumTable, Enumable};
+    ///
+    /// #[derive(Enumable, Copy, Clone)]
+    /// enum Status {
+    ///     Active,
+    ///     Inactive,
+    ///     Pending,
+    /// }
+    ///
+    /// let table = EnumTable::<Status, i32, { Status::COUNT }>::new_fill_with_copy(42);
+    ///
+    /// assert_eq!(table.get(&Status::Active), &42);
+    /// assert_eq!(table.get(&Status::Inactive), &42);
+    /// assert_eq!(table.get(&Status::Pending), &42);
+    /// ```
     pub const fn new_fill_with_copy(value: V) -> Self {
         et!(K, V, { N }, |variant| value)
     }
