@@ -110,15 +110,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// * `f` - A function that takes a reference to an enumeration variant and returns
     ///   a value to be associated with that variant.
     pub fn new_with_fn(mut f: impl FnMut(&K) -> V) -> Self {
-        let mut builder = builder::EnumTableBuilder::<K, V, N>::new();
-
-        for variant in K::VARIANTS {
-            unsafe {
-                builder.push_unchecked(variant, f(variant));
-            }
-        }
-
-        unsafe { builder.build_to_unchecked() }
+        et!(K, V, { N }, |variant| f(variant))
     }
 
     /// Creates a new `EnumTable` using a function that returns a `Result` for each variant.
@@ -137,18 +129,9 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// * `Ok(Self)` if all variants succeed.
     /// * `Err((variant, e))` if any variant fails, containing the failing variant and the error.
     pub fn try_new_with_fn<E>(mut f: impl FnMut(&K) -> Result<V, E>) -> Result<Self, (K, E)> {
-        let mut builder = builder::EnumTableBuilder::<K, V, N>::new();
-
-        for variant in K::VARIANTS {
-            match f(variant) {
-                Ok(value) => unsafe {
-                    builder.push_unchecked(variant, value);
-                },
-                Err(e) => return Err((*variant, e)),
-            }
-        }
-
-        Ok(unsafe { builder.build_to_unchecked() })
+        Ok(et!(K, V, { N }, |variant| {
+            f(variant).map_err(|e| (*variant, e))?
+        }))
     }
 
     /// Creates a new `EnumTable` using a function that returns an `Option` for each variant.
@@ -167,19 +150,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// * `Ok(Self)` if all variants succeed.
     /// * `Err(variant)` if any variant fails, containing the failing variant.
     pub fn checked_new_with_fn(mut f: impl FnMut(&K) -> Option<V>) -> Result<Self, K> {
-        let mut builder = builder::EnumTableBuilder::<K, V, N>::new();
-
-        for variant in K::VARIANTS {
-            if let Some(value) = f(variant) {
-                unsafe {
-                    builder.push_unchecked(variant, value);
-                }
-            } else {
-                return Err(*variant);
-            }
-        }
-
-        Ok(unsafe { builder.build_to_unchecked() })
+        Ok(et!(K, V, { N }, |variant| f(variant).ok_or(*variant)?))
     }
 
     pub(crate) const fn binary_search(&self, variant: &K) -> usize {
@@ -277,18 +248,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
 impl<K: Enumable, V, const N: usize> EnumTable<K, Option<V>, N> {
     /// Creates a new `EnumTable` with `None` values for each variant.
     pub const fn new_fill_with_none() -> Self {
-        let mut builder = builder::EnumTableBuilder::<K, Option<V>, N>::new();
-
-        let mut i = 0;
-        while i < N {
-            let variant = &K::VARIANTS[i];
-            unsafe {
-                builder.push_unchecked(variant, None);
-            }
-            i += 1;
-        }
-
-        unsafe { builder.build_to_unchecked() }
+        et!(K, Option<V>, { N }, |variant| None)
     }
 
     /// Clears the table, setting each value to `None`.
@@ -301,18 +261,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, Option<V>, N> {
 
 impl<K: Enumable, V: Copy, const N: usize> EnumTable<K, V, N> {
     pub const fn new_fill_with_copy(value: V) -> Self {
-        let mut builder = builder::EnumTableBuilder::<K, V, N>::new();
-
-        let mut i = 0;
-        while i < N {
-            let variant = &K::VARIANTS[i];
-            unsafe {
-                builder.push_unchecked(variant, value);
-            }
-            i += 1;
-        }
-
-        unsafe { builder.build_to_unchecked() }
+        et!(K, V, { N }, |variant| value)
     }
 }
 
@@ -322,15 +271,7 @@ impl<K: Enumable, V: Default, const N: usize> EnumTable<K, V, N> {
     /// This method initializes the table with the default value of type `V` for each
     /// variant of the enumeration.
     pub fn new_fill_with_default() -> Self {
-        let mut builder = builder::EnumTableBuilder::<K, V, N>::new();
-
-        for variant in K::VARIANTS {
-            unsafe {
-                builder.push_unchecked(variant, V::default());
-            }
-        }
-
-        unsafe { builder.build_to_unchecked() }
+        et!(K, V, { N }, |variant| V::default())
     }
 
     /// Clears the table, setting each value to its default.
