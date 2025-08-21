@@ -243,6 +243,82 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
             .iter_mut()
             .map(|(discriminant, value)| (cast_variant(discriminant), value))
     }
+
+    /// Transforms all values in the table using the provided function.
+    ///
+    /// This method consumes the table and creates a new one with values
+    /// transformed by the given closure.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - A closure that takes an owned value and returns a new value.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use enum_table::{EnumTable, Enumable};
+    ///
+    /// #[derive(Enumable, Copy, Clone)]
+    /// enum Size {
+    ///     Small,
+    ///     Medium,
+    ///     Large,
+    /// }
+    ///
+    /// let table = EnumTable::<Size, i32, { Size::COUNT }>::new_with_fn(|size| match size {
+    ///     Size::Small => 1,
+    ///     Size::Medium => 2,
+    ///     Size::Large => 3,
+    /// });
+    ///
+    /// let doubled = table.map(|value| value * 2);
+    ///
+    /// assert_eq!(doubled.get(&Size::Small), &2);
+    /// assert_eq!(doubled.get(&Size::Medium), &4);
+    /// assert_eq!(doubled.get(&Size::Large), &6);
+    /// ```
+    pub fn map<U>(self, mut f: impl FnMut(V) -> U) -> EnumTable<K, U, N> {
+        EnumTable::new(
+            self.table
+                .map(|(discriminant, value)| (discriminant, f(value))),
+        )
+    }
+
+    /// Transforms all values in the table in-place using the provided function.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - A closure that takes a mutable reference to a value and modifies it.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use enum_table::{EnumTable, Enumable};
+    ///
+    /// #[derive(Enumable, Copy, Clone)]
+    /// enum Level {
+    ///     Low,
+    ///     Medium,
+    ///     High,
+    /// }
+    ///
+    /// let mut table = EnumTable::<Level, i32, { Level::COUNT }>::new_with_fn(|level| match level {
+    ///     Level::Low => 10,
+    ///     Level::Medium => 20,
+    ///     Level::High => 30,
+    /// });
+    ///
+    /// table.map_mut(|value| *value += 5);
+    ///
+    /// assert_eq!(table.get(&Level::Low), &15);
+    /// assert_eq!(table.get(&Level::Medium), &25);
+    /// assert_eq!(table.get(&Level::High), &35);
+    /// ```
+    pub fn map_mut(&mut self, mut f: impl FnMut(&mut V)) {
+        self.table.iter_mut().for_each(|(_, value)| {
+            f(value);
+        });
+    }
 }
 
 impl<K: Enumable, V, const N: usize> EnumTable<K, Option<V>, N> {
