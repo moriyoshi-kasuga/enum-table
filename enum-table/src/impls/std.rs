@@ -55,6 +55,43 @@ impl<K: Enumable, V, const N: usize> IndexMut<K> for EnumTable<K, V, N> {
     }
 }
 
+impl<K: Enumable, V, const N: usize> IntoIterator for EnumTable<K, V, N> {
+    type Item = (K, V);
+    type IntoIter = core::iter::Map<core::array::IntoIter<(usize, V), N>, fn((usize, V)) -> (K, V)>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.table
+            .into_iter()
+            .map(|(discriminant, value)| (crate::intrinsics::into_variant(discriminant), value))
+    }
+}
+
+impl<'a, K: Enumable, V, const N: usize> IntoIterator for &'a EnumTable<K, V, N> {
+    type Item = (&'a K, &'a V);
+    type IntoIter =
+        core::iter::Map<core::slice::Iter<'a, (usize, V)>, fn(&'a (usize, V)) -> (&'a K, &'a V)>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.table
+            .iter()
+            .map(|(discriminant, value)| (crate::intrinsics::cast_variant(discriminant), value))
+    }
+}
+
+impl<'a, K: Enumable, V, const N: usize> IntoIterator for &'a mut EnumTable<K, V, N> {
+    type Item = (&'a K, &'a mut V);
+    type IntoIter = core::iter::Map<
+        core::slice::IterMut<'a, (usize, V)>,
+        fn(&'a mut (usize, V)) -> (&'a K, &'a mut V),
+    >;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.table
+            .iter_mut()
+            .map(|(discriminant, value)| (crate::intrinsics::cast_variant(discriminant), value))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use core::hash::{Hash, Hasher};
@@ -126,5 +163,38 @@ mod tests {
         let mut mutable_table = TABLES;
         mutable_table[Color::Red] = "Changed Red";
         assert_eq!(mutable_table[Color::Red], "Changed Red");
+    }
+
+    #[test]
+    fn into_iter_impl() {
+        let mut iter = TABLES.into_iter();
+        assert_eq!(iter.next(), Some((Color::Red, "Red")));
+        assert_eq!(iter.next(), Some((Color::Green, "Green")));
+        assert_eq!(iter.next(), Some((Color::Blue, "Blue")));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn into_iter_ref_impl() {
+        let mut iter = (&TABLES).into_iter();
+        assert_eq!(iter.next(), Some((&Color::Red, &"Red")));
+        assert_eq!(iter.next(), Some((&Color::Green, &"Green")));
+        assert_eq!(iter.next(), Some((&Color::Blue, &"Blue")));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn into_iter_mut_impl() {
+        let mut mutable_table = TABLES;
+        let mut iter = (&mut mutable_table).into_iter();
+        assert_eq!(iter.next(), Some((&Color::Red, &mut "Red")));
+        assert_eq!(iter.next(), Some((&Color::Green, &mut "Green")));
+        let blue = iter.next().unwrap();
+        assert_eq!(blue, (&Color::Blue, &mut "Blue"));
+        assert_eq!(iter.next(), None);
+
+        // Modify the value through the mutable reference
+        *blue.1 = "Modified Blue";
+        assert_eq!(mutable_table[Color::Blue], "Modified Blue");
     }
 }
