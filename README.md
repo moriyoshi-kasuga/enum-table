@@ -20,7 +20,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-enum-table = "1.0"
+enum-table = "2.0"
 ```
 
 *Requires Rust 1.85 or later.*
@@ -84,7 +84,7 @@ Enable serde support by adding the `serde` feature:
 
 ```toml
 [dependencies]
-enum-table = { version = "1.0", features = ["serde"] }
+enum-table = { version = "2.0", features = ["serde"] }
 serde_json = "1.0"
 ```
 
