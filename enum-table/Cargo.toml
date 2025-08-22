@@ -23,7 +23,7 @@ std = ["alloc"]
 alloc = []
 
 [dependencies]
-enum-table-derive = { version = "^1", path = "../enum-table-derive", optional = true }
+enum-table-derive = { version = "^2", path = "../enum-table-derive", optional = true }
 serde = { version = "1.0", optional = true, default-features = false, features = [
   "derive",
 ] }
