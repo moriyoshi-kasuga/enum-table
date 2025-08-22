@@ -1,70 +1,108 @@
+## [enum-table-v2.0.0] - 2025-08-22
+
+### 🚀 Features
+
+- Impl Copy
+- Support no-std
+- Add map.rs
+- Add map and map_mut fn
+- Impl IntoIterator
+
+### 🐛 Bug Fixes
+
+- [**breaking**] Change len() to return pushed count, add capacity() method
+- Remove extra code
+- [**breaking**] Remove map fn
+- *(serde)* Add compile-time check for alloc dependency
+
+### 💼 Other
+
+- [**breaking**] Supporting #2
+
+### 🚜 Refactor
+
+- Split impls to files
+- [**breaking**] Require Copy trait for Enumable trait
+- Add #[inline(always)] to critical intrinsics functions
+- Add #[cfg(debug_assetions)] to debug function
+- Split vec-related method
+- Readable code in derive crate
+- Change algrotihm from bubble sort to insertion sort
+- Use et! to readable
+
+### 📚 Documentation
+
+- Add doc for map
+- Add doc for new_fill_with_copy
+
+### 🎨 Styling
+
+- Remove unneccesary lints
+- Run cargo fmt
+
+### 🧪 Testing
+
+- Add test for map
+
+### ⚙️ Miscellaneous Tasks
+
+- Update changelog commit to follow conventional format
+- Change edition to 2024
+- Release v2.0.0
 ## [enum-table-v1.1.2] - 2025-07-08
 
-### Chore
+### 🚜 Refactor
+
+- *(const)* Defer variant sort check to EnumTable creation
+
+### 🎨 Styling
+
+- Fix clippy warning by 1.88.0 rule
+
+### ⚙️ Miscellaneous Tasks
 
 - Fix chnagelog to works on tag
 - Disable update changelog when push to main branch
 - Release v1.1.2
-
-### Refactor
-
-- *(const)* Defer variant sort check to EnumTable creation
-
-### Style
-
-- Fix clippy warning by 1.88.0 rule
-
 ## [enum-table-v1.1.1] - 2025-07-03
 
-### Chore
+### 🐛 Bug Fixes
+
+- Create changelog symlink for sub-package publication
+
+### ⚙️ Miscellaneous Tasks
 
 - Configure git-cliff tag pattern
 - *(lint)* Update markdownlint configuration to new format
 - Release v1.1.1
-
-### Fix
-
-- Create changelog symlink for sub-package publication
-
 ## [enum-table-v1.1.0] - 2025-07-03
 
-### Chore
+### 🚀 Features
 
-- Add workflow to auto-generate and commit CHANGELOG.md
-- Update markdown linter and ignore changelog
-- Release v1.1.0
+- Improve developer experience with compile-time variant order validation
 
-### Docs
+### 🐛 Bug Fixes
+
+- *(serde)* Remove Eq and Hash bounds from Deserialize impl
+
+### 🚜 Refactor
+
+- Remove unneccesary test
+
+### 📚 Documentation
 
 - *(error)* Clarify that MissingVariant implies a duplicate entry
 - Remove fn main by clippy warning
 - *(readme)* Add link to changelog
 
-### Feat
+### ⚙️ Miscellaneous Tasks
 
-- Improve developer experience with compile-time variant order validation
-
-### Fix
-
-- *(serde)* Remove Eq and Hash bounds from Deserialize impl
-
-### Refactor
-
-- Remove unneccesary test
-
+- Add workflow to auto-generate and commit CHANGELOG.md
+- Update markdown linter and ignore changelog
+- Release v1.1.0
 ## [enum-table-v1.0.0] - 2025-06-28
 
-### Chore
-
-- Release v1.0.0
-
-### Docs
-
-- Update typo
-- Update README.md
-- Add benchmarks
-
-### Feat
+### 🚀 Features
 
 - Enable serde support
 - Add convertion methods
@@ -73,7 +111,7 @@
 - Make new_fill_with_none a const function
 - Add `new_fill_with_copy` constructor
 
-### Fix
+### 🐛 Bug Fixes
 
 - Correct implementation
 - Great error message
@@ -81,217 +119,205 @@
 - [**breaking**] Without lifetime on checked_new_with_fn
 - Prevent integer overflow in binary search
 
-### Refactor
+### 🚜 Refactor
 
 - Rename to try_from_vec from from_vec
 - Use macro
 - Performance update. O(log n)
 
-### Style
+### 📚 Documentation
+
+- Update typo
+- Update README.md
+- Add benchmarks
+
+### 🎨 Styling
 
 - Run cargo fmt
 
-### Test
+### 🧪 Testing
 
 - Add binary_search test
 
+### ⚙️ Miscellaneous Tasks
+
+- Release v1.0.0
 ## [enum-table-v0.4.2] - 2025-06-13
 
-### Chore
+### 🚜 Refactor
 
-- Release v0.4.2
+- Change to wraping
 
-### Docs
+### 📚 Documentation
 
 - Update README. use recommended
 - Update optional message
 
-### Refactor
+### ⚙️ Miscellaneous Tasks
 
-- Change to wraping
-
+- Release v0.4.2
 ## [enum-table-v0.4.1] - 2025-06-02
 
-### Chore
-
-- Release v0.4.1
-
-### Docs
-
-- Update README
-
-### Refactor
+### 🚜 Refactor
 
 - Move unsafe to intrinsics mod
 - Update to_usize logic
 
-## [enum-table-v0.4.0] - 2025-05-27
-
-### Chore
-
-- Release 0.4.0
-
-### Feat
-
-- Add try_new_with_fn and checked_new_with_fn
-
-## [enum-table-v0.3.2] - 2025-05-25
-
-### Chore
-
-- Release 0.3.2
-
-### Docs
+### 📚 Documentation
 
 - Update README
 
-### Feat
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.4.1
+## [enum-table-v0.4.0] - 2025-05-27
+
+### 🚀 Features
+
+- Add try_new_with_fn and checked_new_with_fn
+
+### ⚙️ Miscellaneous Tasks
+
+- Release 0.4.0
+## [enum-table-v0.3.2] - 2025-05-25
+
+### 🚀 Features
 
 - Check the unit
 
-### Fix
+### 🐛 Bug Fixes
 
 - Pretty Debug
 - Remove Copy
 
-### Refactor
+### 🚜 Refactor
 
 - Craete from_usize fn
 
-### Test
+### 📚 Documentation
+
+- Update README
+
+### 🧪 Testing
 
 - Fix name
 - Add test of impls
 
+### ⚙️ Miscellaneous Tasks
+
+- Release 0.3.2
 ## [enum-table-v0.3.1] - 2025-05-24
 
-### Chore
-
-- Release 0.3.1
-
-### Docs
-
-- Add describe of optional
-
-### Feat
+### 🚀 Features
 
 - Add values_mut and add doc
 
-### Fix
+### 🐛 Bug Fixes
 
 - Remove method of discriminant
 - Bug
 
-### Test
+### 📚 Documentation
+
+- Add describe of optional
+
+### 🧪 Testing
 
 - Add
 
+### ⚙️ Miscellaneous Tasks
+
+- Release 0.3.1
 ## [enum-table-v0.3.0] - 2025-05-24
 
-### Chore
-
-- Release 0.3.0
-
-### Feat
+### 🚀 Features
 
 - Add method of discriminant
 - Add method of iter
 
-### Fix
+### 🐛 Bug Fixes
 
 - Remove ManuallyDrop
 
+### ⚙️ Miscellaneous Tasks
+
+- Release 0.3.0
 ## [enum-table-v0.2.2] - 2025-03-17
 
-### Chore
-
-- Release v0.2.2
-
-### Docs
-
-- Add examples and more explit doc
-
-### Feat
+### 🚀 Features
 
 - Impl explicit std trait
 
-### Refactor
+### 🚜 Refactor
 
 - Improve panic message on 32 bit architecture
 - Fix derive macro to simple
 - Optimize with to_usize at initialization
 
+### 📚 Documentation
+
+- Add examples and more explit doc
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.2.2
 ## [enum-table-v0.2.1] - 2025-03-10
 
-### Chore
-
-- Release v0.2.1
-
-### Docs
-
-- Update README
-
-### Fix
+### 🐛 Bug Fixes
 
 - Fix import location
 - Fix impl of use_variant_value macro
 
+### 📚 Documentation
+
+- Update README
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.2.1
 ## [enum-table-v0.2.0] - 2025-03-01
 
-### Chore
-
-- Release v0.2.0
-
-### Fix
+### 🐛 Bug Fixes
 
 - Remove count expr from et macro
 
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.2.0
 ## [enum-table-v0.1.3] - 2025-03-01
 
-### Chore
-
-- Relaese v0.1.3
-
-### Docs
-
-- Update README
-
-### Fix
+### 🐛 Bug Fixes
 
 - Return old value on set fn
 
-## [enum-table-v0.1.2] - 2025-02-27
-
-### Chore
-
-- Release v0.1.2
-
-### Docs
-
-- Fix link
-
-## [enum-table-v0.1.1] - 2025-02-27
-
-### Chore
-
-- Update v0.1.1
-
-### Docs
+### 📚 Documentation
 
 - Update README
 
+### ⚙️ Miscellaneous Tasks
+
+- Relaese v0.1.3
+## [enum-table-v0.1.2] - 2025-02-27
+
+### 📚 Documentation
+
+- Fix link
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.1.2
+## [enum-table-v0.1.1] - 2025-02-27
+
+### 📚 Documentation
+
+- Update README
+
+### ⚙️ Miscellaneous Tasks
+
+- Update v0.1.1
 ## [enum-table-v0.1.0] - 2025-02-27
 
-### Chore
-
-- Add workspace
-
-### Docs
-
-- Add doc
-- Add README
-
-### Feat
+### 🚀 Features
 
 - Initialize rust
 - Add base
@@ -302,11 +328,19 @@
 - Remove nightly
 - Add Enumable derive macro
 
-### Fix
+### 🐛 Bug Fixes
 
 - Remove maybe_uninit_array_assume_init feature
 
-### Refactor
+### 🚜 Refactor
 
 - Rename generic from T to K
 
+### 📚 Documentation
+
+- Add doc
+- Add README
+
+### ⚙️ Miscellaneous Tasks
+
+- Add workspace
