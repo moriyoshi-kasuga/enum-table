@@ -14,43 +14,20 @@ pub mod __private {
 }
 
 mod impls;
+pub use impls::*;
+
 mod macros;
 
-use intrinsics::{copy_from_usize, copy_variant, from_usize, to_usize};
+use intrinsics::{cast_variant, into_variant, to_usize};
 
 /// A trait for enumerations that can be used with `EnumTable`.
 ///
 /// This trait requires that the enumeration provides a static array of its variants
 /// and a constant representing the count of these variants.
-pub trait Enumable: Sized + 'static {
+pub trait Enumable: Copy + 'static {
     const VARIANTS: &'static [Self];
     const COUNT: usize = Self::VARIANTS.len();
 }
-
-/// Error type for `EnumTable::try_from_vec`.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum EnumTableFromVecError<K> {
-    /// The vector has an invalid size.
-    InvalidSize { expected: usize, found: usize },
-    /// A required enum variant is missing from the vector.
-    /// This error happened meaning that the vector duplicated some variant
-    MissingVariant(K),
-}
-
-impl<K: core::fmt::Debug> core::fmt::Display for EnumTableFromVecError<K> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            EnumTableFromVecError::InvalidSize { expected, found } => {
-                write!(f, "Invalid vector size: expected {expected}, found {found}")
-            }
-            EnumTableFromVecError::MissingVariant(variant) => {
-                write!(f, "Missing enum variant: {variant:?}")
-            }
-        }
-    }
-}
-
-impl<K: core::fmt::Debug> core::error::Error for EnumTableFromVecError<K> {}
 
 /// A table that associates each variant of an enumeration with a value.
 ///
@@ -79,7 +56,7 @@ impl<K: core::fmt::Debug> core::error::Error for EnumTableFromVecError<K> {}
 /// ```rust
 /// use enum_table::{EnumTable, Enumable};
 ///
-/// #[derive(Enumable)]
+/// #[derive(Enumable, Copy, Clone)]
 /// enum Color {
 ///     Red,
 ///     Green,
@@ -112,7 +89,9 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
             // Ensure that the variants are sorted by their discriminants.
             // This is a compile-time check to ensure that the variants are in the correct order.
             if !intrinsics::is_sorted(K::VARIANTS) {
-                panic!("Enumable: variants are not sorted by discriminant. Use `enum_table::Enumable` derive macro to ensure correct ordering.");
+                panic!(
+                    "Enumable: variants are not sorted by discriminant. Use `enum_table::Enumable` derive macro to ensure correct ordering."
+                );
             }
         }
 
@@ -131,13 +110,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// * `f` - A function that takes a reference to an enumeration variant and returns
     ///   a value to be associated with that variant.
     pub fn new_with_fn(mut f: impl FnMut(&K) -> V) -> Self {
-        let mut builder = builder::EnumTableBuilder::<K, V, N>::new();
-
-        for variant in K::VARIANTS {
-            builder.push(variant, f(variant));
-        }
-
-        builder.build_to()
+        et!(K, V, { N }, |variant| f(variant))
     }
 
     /// Creates a new `EnumTable` using a function that returns a `Result` for each variant.
@@ -156,16 +129,9 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// * `Ok(Self)` if all variants succeed.
     /// * `Err((variant, e))` if any variant fails, containing the failing variant and the error.
     pub fn try_new_with_fn<E>(mut f: impl FnMut(&K) -> Result<V, E>) -> Result<Self, (K, E)> {
-        let mut builder = builder::EnumTableBuilder::<K, V, N>::new();
-
-        for variant in K::VARIANTS {
-            match f(variant) {
-                Ok(value) => builder.push(variant, value),
-                Err(e) => return Err((copy_variant(variant), e)),
-            }
-        }
-
-        Ok(builder.build_to())
+        Ok(et!(K, V, { N }, |variant| {
+            f(variant).map_err(|e| (*variant, e))?
+        }))
     }
 
     /// Creates a new `EnumTable` using a function that returns an `Option` for each variant.
@@ -184,17 +150,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// * `Ok(Self)` if all variants succeed.
     /// * `Err(variant)` if any variant fails, containing the failing variant.
     pub fn checked_new_with_fn(mut f: impl FnMut(&K) -> Option<V>) -> Result<Self, K> {
-        let mut builder = builder::EnumTableBuilder::<K, V, N>::new();
-
-        for variant in K::VARIANTS {
-            if let Some(value) = f(variant) {
-                builder.push(variant, value);
-            } else {
-                return Err(copy_variant(variant));
-            }
-        }
-
-        Ok(builder.build_to())
+        Ok(et!(K, V, { N }, |variant| f(variant).ok_or(*variant)?))
     }
 
     pub(crate) const fn binary_search(&self, variant: &K) -> usize {
@@ -261,7 +217,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     pub fn keys(&self) -> impl Iterator<Item = &K> {
         self.table
             .iter()
-            .map(|(discriminant, _)| from_usize(discriminant))
+            .map(|(discriminant, _)| cast_variant(discriminant))
     }
 
     /// Returns an iterator over references to the values in the table.
@@ -278,163 +234,97 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
         self.table
             .iter()
-            .map(|(discriminant, value)| (from_usize(discriminant), value))
+            .map(|(discriminant, value)| (cast_variant(discriminant), value))
     }
 
     /// Returns an iterator over mutable references to the values in the table.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (&K, &mut V)> {
         self.table
             .iter_mut()
-            .map(|(discriminant, value)| (from_usize(discriminant), value))
+            .map(|(discriminant, value)| (cast_variant(discriminant), value))
     }
 
-    /// Maps the values of the table using a closure, creating a new `EnumTable` with the transformed values.
+    /// Transforms all values in the table using the provided function.
+    ///
+    /// This method consumes the table and creates a new one with values
+    /// transformed by the given closure.
     ///
     /// # Arguments
     ///
-    /// * `f` - A closure that takes a value and returns a transformed value.
+    /// * `f` - A closure that takes an owned value and returns a new value.
     ///
     /// # Examples
     ///
     /// ```rust
     /// use enum_table::{EnumTable, Enumable};
     ///
-    /// #[derive(Enumable)]
-    /// enum Color {
-    ///     Red,
-    ///     Green,
-    ///     Blue,
+    /// #[derive(Enumable, Copy, Clone)]
+    /// enum Size {
+    ///     Small,
+    ///     Medium,
+    ///     Large,
     /// }
     ///
-    /// let table = EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
-    ///     Color::Red => 1,
-    ///     Color::Green => 2,
-    ///     Color::Blue => 3,
+    /// let table = EnumTable::<Size, i32, { Size::COUNT }>::new_with_fn(|size| match size {
+    ///     Size::Small => 1,
+    ///     Size::Medium => 2,
+    ///     Size::Large => 3,
     /// });
     ///
-    /// let doubled = table.map(|x| x * 2);
-    /// assert_eq!(doubled.get(&Color::Red), &2);
-    /// assert_eq!(doubled.get(&Color::Green), &4);
-    /// assert_eq!(doubled.get(&Color::Blue), &6);
+    /// let doubled = table.map(|value| value * 2);
+    ///
+    /// assert_eq!(doubled.get(&Size::Small), &2);
+    /// assert_eq!(doubled.get(&Size::Medium), &4);
+    /// assert_eq!(doubled.get(&Size::Large), &6);
     /// ```
-    pub fn map<U, F>(self, mut f: F) -> EnumTable<K, U, N>
-    where
-        F: FnMut(V) -> U,
-    {
-        let mut builder = builder::EnumTableBuilder::<K, U, N>::new();
-
-        for (discriminant, value) in self.table {
-            let key = from_usize(&discriminant);
-            builder.push(key, f(value));
-        }
-
-        builder.build_to()
+    pub fn map<U>(self, mut f: impl FnMut(V) -> U) -> EnumTable<K, U, N> {
+        EnumTable::new(
+            self.table
+                .map(|(discriminant, value)| (discriminant, f(value))),
+        )
     }
 
-    /// Converts the `EnumTable` into a `Vec` of key-value pairs.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use enum_table::{EnumTable, Enumable};
-    ///
-    /// #[derive(Enumable, Debug, PartialEq, Copy, Clone)]
-    /// enum Color {
-    ///     Red,
-    ///     Green,
-    ///     Blue,
-    /// }
-    ///
-    /// let table = EnumTable::<Color, &str, { Color::COUNT }>::new_with_fn(|color| match color {
-    ///     Color::Red => "red",
-    ///     Color::Green => "green",
-    ///     Color::Blue => "blue",
-    /// });
-    ///
-    /// let vec = table.into_vec();
-    /// assert!(vec.contains(&(Color::Red, "red")));
-    /// assert!(vec.contains(&(Color::Green, "green")));
-    /// assert!(vec.contains(&(Color::Blue, "blue")));
-    /// assert_eq!(vec.len(), 3);
-    /// ```
-    pub fn into_vec(self) -> Vec<(K, V)> {
-        self.table
-            .into_iter()
-            .map(|(discriminant, value)| (copy_from_usize(&discriminant), value))
-            .collect()
-    }
-
-    /// Creates an `EnumTable` from a `Vec` of key-value pairs.
-    ///
-    /// Returns an error if the vector doesn't contain exactly one entry for each enum variant.
+    /// Transforms all values in the table in-place using the provided function.
     ///
     /// # Arguments
     ///
-    /// * `vec` - A vector containing key-value pairs for each enum variant.
+    /// * `f` - A closure that takes a mutable reference to a value and modifies it.
     ///
     /// # Examples
     ///
     /// ```rust
     /// use enum_table::{EnumTable, Enumable};
     ///
-    /// #[derive(Enumable, Debug, PartialEq, Copy, Clone)]
-    /// enum Color {
-    ///     Red,
-    ///     Green,
-    ///     Blue,
+    /// #[derive(Enumable, Copy, Clone)]
+    /// enum Level {
+    ///     Low,
+    ///     Medium,
+    ///     High,
     /// }
     ///
-    /// let vec = vec![
-    ///     (Color::Red, "red"),
-    ///     (Color::Green, "green"),
-    ///     (Color::Blue, "blue"),
-    /// ];
+    /// let mut table = EnumTable::<Level, i32, { Level::COUNT }>::new_with_fn(|level| match level {
+    ///     Level::Low => 10,
+    ///     Level::Medium => 20,
+    ///     Level::High => 30,
+    /// });
     ///
-    /// let table = EnumTable::<Color, &str, { Color::COUNT }>::try_from_vec(vec).unwrap();
-    /// assert_eq!(table.get(&Color::Red), &"red");
-    /// assert_eq!(table.get(&Color::Green), &"green");
-    /// assert_eq!(table.get(&Color::Blue), &"blue");
+    /// table.map_mut(|value| *value += 5);
+    ///
+    /// assert_eq!(table.get(&Level::Low), &15);
+    /// assert_eq!(table.get(&Level::Medium), &25);
+    /// assert_eq!(table.get(&Level::High), &35);
     /// ```
-    pub fn try_from_vec(mut vec: Vec<(K, V)>) -> Result<Self, EnumTableFromVecError<K>> {
-        if vec.len() != N {
-            return Err(EnumTableFromVecError::InvalidSize {
-                expected: N,
-                found: vec.len(),
-            });
-        }
-
-        let mut builder = builder::EnumTableBuilder::<K, V, N>::new();
-
-        // Check that all variants are present and move values out
-        for variant in K::VARIANTS {
-            if let Some(pos) = vec
-                .iter()
-                .position(|(k, _)| to_usize(k) == to_usize(variant))
-            {
-                let (_, value) = vec.swap_remove(pos);
-                builder.push(variant, value);
-            } else {
-                return Err(EnumTableFromVecError::MissingVariant(copy_variant(variant)));
-            }
-        }
-
-        Ok(builder.build_to())
+    pub fn map_mut(&mut self, mut f: impl FnMut(&mut V)) {
+        self.table.iter_mut().for_each(|(_, value)| {
+            f(value);
+        });
     }
 }
 
 impl<K: Enumable, V, const N: usize> EnumTable<K, Option<V>, N> {
     /// Creates a new `EnumTable` with `None` values for each variant.
     pub const fn new_fill_with_none() -> Self {
-        let mut builder = builder::EnumTableBuilder::<K, Option<V>, N>::new();
-
-        let mut i = 0;
-        while i < N {
-            let variant = &K::VARIANTS[i];
-            builder.push(variant, None);
-            i += 1;
-        }
-
-        builder.build_to()
+        et!(K, Option<V>, { N }, |variant| None)
     }
 
     /// Clears the table, setting each value to `None`.
@@ -446,17 +336,35 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, Option<V>, N> {
 }
 
 impl<K: Enumable, V: Copy, const N: usize> EnumTable<K, V, N> {
+    /// Creates a new `EnumTable` with the same copied value for each variant.
+    ///
+    /// This method initializes the table with the same value for each
+    /// variant of the enumeration. The value must implement `Copy`.
+    ///
+    /// # Arguments
+    ///
+    /// * `value` - The value to copy for each enum variant.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use enum_table::{EnumTable, Enumable};
+    ///
+    /// #[derive(Enumable, Copy, Clone)]
+    /// enum Status {
+    ///     Active,
+    ///     Inactive,
+    ///     Pending,
+    /// }
+    ///
+    /// let table = EnumTable::<Status, i32, { Status::COUNT }>::new_fill_with_copy(42);
+    ///
+    /// assert_eq!(table.get(&Status::Active), &42);
+    /// assert_eq!(table.get(&Status::Inactive), &42);
+    /// assert_eq!(table.get(&Status::Pending), &42);
+    /// ```
     pub const fn new_fill_with_copy(value: V) -> Self {
-        let mut builder = builder::EnumTableBuilder::<K, V, N>::new();
-
-        let mut i = 0;
-        while i < N {
-            let variant = &K::VARIANTS[i];
-            builder.push(variant, value);
-            i += 1;
-        }
-
-        builder.build_to()
+        et!(K, V, { N }, |variant| value)
     }
 }
 
@@ -466,13 +374,7 @@ impl<K: Enumable, V: Default, const N: usize> EnumTable<K, V, N> {
     /// This method initializes the table with the default value of type `V` for each
     /// variant of the enumeration.
     pub fn new_fill_with_default() -> Self {
-        let mut builder = builder::EnumTableBuilder::<K, V, N>::new();
-
-        for variant in K::VARIANTS {
-            builder.push(variant, V::default());
-        }
-
-        builder.build_to()
+        et!(K, V, { N }, |variant| V::default())
     }
 
     /// Clears the table, setting each value to its default.
@@ -660,89 +562,6 @@ mod tests {
                 (&Color::Blue, &"Changed Blue")
             ]
         );
-    }
-
-    #[test]
-    fn map() {
-        let table = EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
-            Color::Red => 1,
-            Color::Green => 2,
-            Color::Blue => 3,
-        });
-
-        let doubled = table.map(|x| x * 2);
-        assert_eq!(doubled.get(&Color::Red), &2);
-        assert_eq!(doubled.get(&Color::Green), &4);
-        assert_eq!(doubled.get(&Color::Blue), &6);
-    }
-
-    #[test]
-    fn into_vec() {
-        let table = TABLES;
-        let vec = table.into_vec();
-
-        assert_eq!(vec.len(), 3);
-        assert!(vec.contains(&(Color::Red, "Red")));
-        assert!(vec.contains(&(Color::Green, "Green")));
-        assert!(vec.contains(&(Color::Blue, "Blue")));
-    }
-
-    #[test]
-    fn try_from_vec() {
-        let vec = vec![
-            (Color::Red, "Red"),
-            (Color::Green, "Green"),
-            (Color::Blue, "Blue"),
-        ];
-
-        let table = EnumTable::<Color, &str, { Color::COUNT }>::try_from_vec(vec).unwrap();
-        assert_eq!(table.get(&Color::Red), &"Red");
-        assert_eq!(table.get(&Color::Green), &"Green");
-        assert_eq!(table.get(&Color::Blue), &"Blue");
-    }
-
-    #[test]
-    fn try_from_vec_invalid_size() {
-        let vec = vec![
-            (Color::Red, "Red"),
-            (Color::Green, "Green"),
-            // Missing Blue
-        ];
-
-        let result = EnumTable::<Color, &str, { Color::COUNT }>::try_from_vec(vec);
-        assert_eq!(
-            result,
-            Err(crate::EnumTableFromVecError::InvalidSize {
-                expected: 3,
-                found: 2
-            })
-        );
-    }
-
-    #[test]
-    fn try_from_vec_missing_variant() {
-        let vec = vec![
-            (Color::Red, "Red"),
-            (Color::Green, "Green"),
-            (Color::Red, "Duplicate Red"), // Duplicate instead of Blue
-        ];
-
-        let result = EnumTable::<Color, &str, { Color::COUNT }>::try_from_vec(vec);
-        assert_eq!(
-            result,
-            Err(crate::EnumTableFromVecError::MissingVariant(Color::Blue))
-        );
-    }
-
-    #[test]
-    fn conversion_roundtrip() {
-        let original = TABLES;
-        let vec = original.into_vec();
-        let reconstructed = EnumTable::<Color, &str, { Color::COUNT }>::try_from_vec(vec).unwrap();
-
-        assert_eq!(reconstructed.get(&Color::Red), &"Red");
-        assert_eq!(reconstructed.get(&Color::Green), &"Green");
-        assert_eq!(reconstructed.get(&Color::Blue), &"Blue");
     }
 
     macro_rules! run_variants_test {

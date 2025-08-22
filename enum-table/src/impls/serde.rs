@@ -1,59 +1,5 @@
-use std::ops::{Index, IndexMut};
-
 use crate::{EnumTable, Enumable};
 
-impl<K: Enumable + core::fmt::Debug, V: core::fmt::Debug, const N: usize> core::fmt::Debug
-    for EnumTable<K, V, N>
-{
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        f.debug_map().entries(self.iter()).finish()
-    }
-}
-
-impl<K: Enumable, V: Clone, const N: usize> Clone for EnumTable<K, V, N> {
-    fn clone(&self) -> Self {
-        Self {
-            table: self.table.clone(),
-            _phantom: core::marker::PhantomData,
-        }
-    }
-}
-
-impl<K: Enumable, V: PartialEq, const N: usize> PartialEq for EnumTable<K, V, N> {
-    fn eq(&self, other: &Self) -> bool {
-        self.table.eq(&other.table)
-    }
-}
-
-impl<K: Enumable, V: Eq, const N: usize> Eq for EnumTable<K, V, N> {}
-
-impl<K: Enumable, V: std::hash::Hash, const N: usize> std::hash::Hash for EnumTable<K, V, N> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.table.hash(state);
-    }
-}
-
-impl<K: Enumable, V: Default, const N: usize> Default for EnumTable<K, V, N> {
-    fn default() -> Self {
-        EnumTable::new_with_fn(|_| Default::default())
-    }
-}
-
-impl<K: Enumable, V, const N: usize> Index<K> for EnumTable<K, V, N> {
-    type Output = V;
-
-    fn index(&self, index: K) -> &Self::Output {
-        self.get(&index)
-    }
-}
-
-impl<K: Enumable, V, const N: usize> IndexMut<K> for EnumTable<K, V, N> {
-    fn index_mut(&mut self, index: K) -> &mut Self::Output {
-        self.get_mut(&index)
-    }
-}
-
-#[cfg(feature = "serde")]
 impl<K, V, const N: usize> serde::Serialize for EnumTable<K, V, N>
 where
     K: Enumable + serde::Serialize,
@@ -72,7 +18,6 @@ where
     }
 }
 
-#[cfg(feature = "serde")]
 impl<'de, K, V, const N: usize> serde::Deserialize<'de> for EnumTable<K, V, N>
 where
     K: Enumable + serde::Deserialize<'de> + core::fmt::Debug,
@@ -82,9 +27,8 @@ where
     where
         D: serde::Deserializer<'de>,
     {
+        use core::marker::PhantomData;
         use serde::de::{MapAccess, Visitor};
-        use std::fmt;
-        use std::marker::PhantomData;
 
         struct EnumTableVisitor<K, V, const N: usize> {
             _phantom: PhantomData<(K, V)>,
@@ -97,7 +41,7 @@ where
         {
             type Value = EnumTable<K, V, N>;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
                 formatter.write_str("a map with all enum variants as keys")
             }
 
@@ -139,12 +83,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::hash::{Hash, Hasher};
-
     use super::*;
 
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Enumable)]
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[derive(Debug, Clone, Copy, Enumable, serde::Serialize, serde::Deserialize)]
     enum Color {
         Red,
         Green,
@@ -158,66 +99,6 @@ mod tests {
             Color::Blue => "Blue",
         });
 
-    const ANOTHER_TABLES: EnumTable<Color, &'static str, { Color::COUNT }> =
-        crate::et!(Color, &'static str, |color| match color {
-            Color::Red => "Red",
-            Color::Green => "Green",
-            Color::Blue => "Blue",
-        });
-
-    #[test]
-    fn debug_impl() {
-        assert_eq!(
-            format!("{TABLES:?}"),
-            r#"{Red: "Red", Green: "Green", Blue: "Blue"}"#
-        );
-    }
-
-    #[test]
-    fn clone_impl() {
-        let cloned = TABLES.clone();
-        assert_eq!(cloned, TABLES);
-    }
-
-    #[test]
-    fn eq_impl() {
-        assert!(TABLES == ANOTHER_TABLES);
-        assert!(TABLES != EnumTable::new_with_fn(|_| "Unknown"));
-    }
-
-    #[test]
-    fn hash_impl() {
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        TABLES.hash(&mut hasher);
-        let hash1 = hasher.finish();
-
-        let mut hasher2 = std::collections::hash_map::DefaultHasher::new();
-        ANOTHER_TABLES.hash(&mut hasher2);
-        let hash2 = hasher2.finish();
-
-        assert_eq!(hash1, hash2);
-    }
-
-    #[test]
-    fn default_impl() {
-        let default_table: EnumTable<Color, &'static str, { Color::COUNT }> = EnumTable::default();
-        assert_eq!(default_table.get(&Color::Red), &"");
-        assert_eq!(default_table.get(&Color::Green), &"");
-        assert_eq!(default_table.get(&Color::Blue), &"");
-    }
-
-    #[test]
-    fn index_impl() {
-        assert_eq!(TABLES[Color::Red], "Red");
-        assert_eq!(TABLES[Color::Green], "Green");
-        assert_eq!(TABLES[Color::Blue], "Blue");
-
-        let mut mutable_table = TABLES.clone();
-        mutable_table[Color::Red] = "Changed Red";
-        assert_eq!(mutable_table[Color::Red], "Changed Red");
-    }
-
-    #[cfg(feature = "serde")]
     #[test]
     fn serde_serialize() {
         let json = serde_json::to_string(&TABLES).unwrap();
@@ -226,7 +107,6 @@ mod tests {
         assert!(json.contains(r#""Blue":"Blue""#));
     }
 
-    #[cfg(feature = "serde")]
     #[test]
     fn serde_deserialize() {
         let json = r#"{"Red":"Red","Green":"Green","Blue":"Blue"}"#;
@@ -237,7 +117,6 @@ mod tests {
         assert_eq!(table.get(&Color::Blue), &"Blue");
     }
 
-    #[cfg(feature = "serde")]
     #[test]
     fn serde_roundtrip() {
         let original = TABLES;
@@ -248,7 +127,6 @@ mod tests {
         assert_eq!(original, deserialized);
     }
 
-    #[cfg(feature = "serde")]
     #[test]
     fn serde_missing_variant_error() {
         // Missing Blue variant

@@ -1,6 +1,6 @@
 use core::mem::MaybeUninit;
 
-use crate::{intrinsics::to_usize, EnumTable, Enumable};
+use crate::{EnumTable, Enumable, intrinsics::to_usize};
 
 /// A builder for creating an `EnumTable` with a specified number of elements.
 ///
@@ -16,7 +16,7 @@ use crate::{intrinsics::to_usize, EnumTable, Enumable};
 /// ```rust
 /// use enum_table::{EnumTable, Enumable, builder::EnumTableBuilder,};
 ///
-/// #[derive(Debug, Enumable)]
+/// #[derive(Debug, Copy, Clone, Enumable)]
 /// enum Test {
 ///     A,
 ///     B,
@@ -25,10 +25,12 @@ use crate::{intrinsics::to_usize, EnumTable, Enumable};
 ///
 /// const TABLE: EnumTable<Test, &'static str, { Test::COUNT }> = {
 ///    let mut builder = EnumTableBuilder::<Test, &'static str, { Test::COUNT }>::new();
-///    builder.push(&Test::A, "A");
-///    builder.push(&Test::B, "B");
-///    builder.push(&Test::C, "C");
-///    builder.build_to()
+///    unsafe {
+///        builder.push_unchecked(&Test::A, "A");
+///        builder.push_unchecked(&Test::B, "B");
+///        builder.push_unchecked(&Test::C, "C");
+///        builder.build_to_unchecked()
+///    }
 /// };
 ///
 /// // Access values associated with enum variants
@@ -56,16 +58,22 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
         }
     }
 
-    /// Pushes a new element into the builder.
+    /// Pushes a new element into the builder without safety checks.
+    ///
+    /// # Safety
+    ///
+    /// * The caller must ensure that elements are pushed in the correct order
+    ///   (sorted by discriminant).
+    /// * The caller must ensure that no variant is pushed more than once.
+    /// * The caller must ensure that the builder doesn't exceed capacity N.
     ///
     /// # Arguments
     ///
     /// * `variant` - A reference to an enumeration variant.
     /// * `value` - The value to associate with the variant.
-    pub const fn push(&mut self, variant: &K, value: V) {
-        if self.idx >= N {
-            panic!("EnumTableBuilder: too many elements pushed");
-        }
+    pub const unsafe fn push_unchecked(&mut self, variant: &K, value: V) {
+        debug_assert!(self.idx < N, "EnumTableBuilder: too many elements pushed");
+
         let element = (to_usize(variant), value);
 
         unsafe {
@@ -79,16 +87,20 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
         self.idx += 1;
     }
 
-    /// Builds the table from the pushed elements.
+    /// Builds the table from the pushed elements without checking if all variants are filled.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that all N variants have been pushed to the builder.
+    /// If this is not the case, the resulting table will contain uninitialized memory.
     ///
     /// # Returns
     ///
     /// An array of tuples where each tuple contains a discriminant of an enumeration
     /// variant and its associated value.
-    pub const fn build(self) -> [(usize, V); N] {
-        if self.idx != N {
-            panic!("EnumTableBuilder: not enough elements");
-        }
+    pub const unsafe fn build_unchecked(self) -> [(usize, V); N] {
+        // We can't use debug_assert_eq! in const context, so use a simpler assertion
+        // debug_assert_eq!(self.idx, N, "EnumTableBuilder: not enough elements");
 
         const fn is_sorted<const N: usize, V>(arr: &[(usize, V); N]) -> bool {
             let mut i = 0;
@@ -101,7 +113,7 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
             true
         }
 
-        // SAFETY: The table is filled.
+        // SAFETY: Caller guarantees that the table is filled.
         let table = unsafe { self.table.assume_init() };
 
         debug_assert!(
@@ -112,21 +124,26 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
         table
     }
 
-    /// Builds the `EnumTable` from the pushed elements.
+    /// Builds the `EnumTable` from the pushed elements without checking if all variants are filled.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that all N variants have been pushed to the builder.
     ///
     /// # Returns
     ///
     /// An `EnumTable` containing the elements pushed into the builder.
-    pub const fn build_to(self) -> EnumTable<K, V, N> {
-        EnumTable::new(self.build())
+    pub const unsafe fn build_to_unchecked(self) -> EnumTable<K, V, N> {
+        EnumTable::new(unsafe { self.build_unchecked() })
     }
 
-    /// Returns the number of elements the builder is expected to hold.
-    ///
-    /// # Returns
-    ///
-    /// The number of elements `N`.
+    /// Returns the number of elements pushed into the builder.
     pub const fn len(&self) -> usize {
+        self.idx
+    }
+
+    /// Returns the capacity of the builder.
+    pub const fn capacity(&self) -> usize {
         N
     }
 
@@ -152,7 +169,7 @@ mod tests {
 
     #[test]
     fn builder() {
-        #[derive(Enumable)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Enumable)]
         enum Test {
             A,
             B,
@@ -163,20 +180,22 @@ mod tests {
             let mut builder = EnumTableBuilder::<Test, &'static str, { Test::COUNT }>::new();
 
             let mut i = 0;
-            while i < builder.len() {
+            while i < builder.capacity() {
                 let t = &Test::VARIANTS[i];
-                builder.push(
-                    t,
-                    match t {
-                        Test::A => "A",
-                        Test::B => "B",
-                        Test::C => "C",
-                    },
-                );
+                unsafe {
+                    builder.push_unchecked(
+                        t,
+                        match t {
+                            Test::A => "A",
+                            Test::B => "B",
+                            Test::C => "C",
+                        },
+                    );
+                }
                 i += 1;
             }
 
-            builder.build_to()
+            unsafe { builder.build_to_unchecked() }
         };
 
         assert_eq!(TABLE.get(&Test::A), &"A");

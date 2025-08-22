@@ -13,6 +13,7 @@
 /// ```rust
 /// use enum_table::{EnumTable, Enumable, et};
 ///
+/// #[derive(Copy, Clone)]
 /// enum Test {
 ///     A,
 ///     B,
@@ -36,22 +37,29 @@
 ///
 #[macro_export]
 macro_rules! et {
-    ($variant:ty, $value:ty, |$variable:ident| $($tt:tt)*) => {
+    ($variant:ty, $value:ty, $COUNT:block, |$variable:ident| $($tt:tt)*) => {
         {
-            let mut builder = $crate::builder::EnumTableBuilder::<$variant, $value, { <$variant as $crate::Enumable>::COUNT }>::new();
+            let mut builder = $crate::builder::EnumTableBuilder::<$variant, $value, $COUNT>::new();
 
             let mut i = 0;
-            while i < builder.len() {
+            while i < builder.capacity() {
                 let $variable = &<$variant as $crate::Enumable>::VARIANTS[i];
-                builder.push(
-                    $variable,
-                    $($tt)*
-                );
+                let value = $($tt)*;
+                let t = $variable;
+                unsafe {
+                    builder.push_unchecked(
+                        t,
+                        value,
+                    );
+                }
                 i += 1;
             }
 
-            builder.build_to()
+            unsafe { builder.build_to_unchecked() }
         }
+    };
+    ($variant:ty, $value:ty, |$variable:ident| $($tt:tt)*) => {
+        $crate::et!($variant, $value, { <$variant as $crate::Enumable>::COUNT }, |$variable| $($tt)*)
     };
 }
 
@@ -61,7 +69,7 @@ mod tests {
 
     #[test]
     fn et_macro() {
-        #[derive(Enumable)]
+        #[derive(Clone, Copy, Enumable)]
         enum Test {
             A,
             B,

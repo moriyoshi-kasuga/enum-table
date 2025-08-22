@@ -15,9 +15,12 @@ keywords.workspace = true
 name = "enum_table"
 
 [features]
-default = ["derive"]
+default = ["std", "derive"]
 derive = ["dep:enum-table-derive"]
 serde = ["dep:serde"]
+
+std = ["alloc"]
+alloc = []
 
 [dependencies]
 enum-table-derive = { version = "^1", path = "../enum-table-derive", optional = true }
