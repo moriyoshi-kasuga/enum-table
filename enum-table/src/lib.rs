@@ -284,6 +284,21 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
         )
     }
 
+    /// Transforms all values in the table using the provided function, with access to the key.
+    ///
+    /// This method consumes the table and creates a new one with values
+    /// transformed by the given closure, which receives both the key and the value.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - A closure that takes a key reference and an owned value, and returns a new value.
+    pub fn map_with_key<U>(self, mut f: impl FnMut(&K, V) -> U) -> EnumTable<K, U, N> {
+        EnumTable::new(
+            self.table
+                .map(|(discriminant, value)| (discriminant, f(cast_variant(&discriminant), value))),
+        )
+    }
+
     /// Transforms all values in the table in-place using the provided function.
     ///
     /// # Arguments
@@ -317,6 +332,17 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     pub fn map_mut(&mut self, mut f: impl FnMut(&mut V)) {
         self.table.iter_mut().for_each(|(_, value)| {
             f(value);
+        });
+    }
+
+    /// Transforms all values in the table in-place using the provided function, with access to the key.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - A closure that takes a key reference and a mutable reference to a value, and modifies it.
+    pub fn map_mut_with_key(&mut self, mut f: impl FnMut(&K, &mut V)) {
+        self.table.iter_mut().for_each(|(discriminant, value)| {
+            f(cast_variant(discriminant), value);
         });
     }
 }
@@ -562,6 +588,81 @@ mod tests {
                 (&Color::Blue, &"Changed Blue")
             ]
         );
+    }
+
+    #[test]
+    fn map() {
+        let table =
+            EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
+                Color::Red => 1,
+                Color::Green => 2,
+                Color::Blue => 3,
+            });
+
+        let doubled = table.map(|value| value * 2);
+
+        assert_eq!(doubled.get(&Color::Red), &2);
+        assert_eq!(doubled.get(&Color::Green), &4);
+        assert_eq!(doubled.get(&Color::Blue), &6);
+    }
+
+    #[test]
+    fn map_with_key() {
+        let table =
+            EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
+                Color::Red => 1,
+                Color::Green => 2,
+                Color::Blue => 3,
+            });
+
+        let mapped = table.map_with_key(|key, value| match key {
+            Color::Red => value + 10,    // 1 + 10 = 11
+            Color::Green => value + 20, // 2 + 20 = 22
+            Color::Blue => value + 30,  // 3 + 30 = 33
+        });
+
+        // Note: The order in the underlying table is based on discriminant value (Green, Red, Blue)
+        assert_eq!(mapped.get(&Color::Red), &11);
+        assert_eq!(mapped.get(&Color::Green), &22);
+        assert_eq!(mapped.get(&Color::Blue), &33);
+    }
+
+    #[test]
+    fn map_mut() {
+        let mut table =
+            EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
+                Color::Red => 10,
+                Color::Green => 20,
+                Color::Blue => 30,
+            });
+
+        table.map_mut(|value| *value += 5);
+
+        assert_eq!(table.get(&Color::Red), &15);
+        assert_eq!(table.get(&Color::Green), &25);
+        assert_eq!(table.get(&Color::Blue), &35);
+    }
+
+    #[test]
+    fn map_mut_with_key() {
+        let mut table =
+            EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
+                Color::Red => 10,
+                Color::Green => 20,
+                Color::Blue => 30,
+            });
+
+        table.map_mut_with_key(|key, value| {
+            *value += match key {
+                Color::Red => 1,   // 10 + 1 = 11
+                Color::Green => 2, // 20 + 2 = 22
+                Color::Blue => 3,  // 30 + 3 = 33
+            }
+        });
+
+        assert_eq!(table.get(&Color::Red), &11);
+        assert_eq!(table.get(&Color::Green), &22);
+        assert_eq!(table.get(&Color::Blue), &33);
     }
 
     macro_rules! run_variants_test {
