@@ -152,20 +152,41 @@ assert_eq!(error, "Failed to get value for Green");
 
 ### Key Methods
 
-- `EnumTable::new_with_fn()`: Create a table by mapping each enum variant to a value
-- `EnumTable::try_new_with_fn()`: Create a table with error handling support
-- `EnumTable::checked_new_with_fn()`: Create a table with optional values
-- `EnumTable::get()`: Access the value for a specific enum variant
-- `EnumTable::get_mut()`: Get mutable access to a value
-- `EnumTable::set()`: Update a value and return the old one
+- `EnumTable::new_with_fn()`: Create a table by mapping each enum variant to a value.
+- `EnumTable::try_new_with_fn()`: Create a table with error handling support.
+- `EnumTable::checked_new_with_fn()`: Create a table with optional values.
+- `EnumTable::get()`: Access the value for a specific enum variant.
+- `EnumTable::get_mut()`: Get mutable access to a value.
+- `EnumTable::set()`: Update a value and return the old one.
 
-### Additional Functionality
+### Transformation
 
-- `map()`: Transform all values in the table
-- `iter()`, `iter_mut()`: Iterate over key-value pairs
-- `keys()`, `values()`: Iterate over keys or values separately
-- `into_vec()`: Convert the table to a vector of key-value pairs
-- `try_from_vec()`: Create a table from a vector of key-value pairs
+- `map()`: Transforms all values in the table.
+- `map_mut()`: Transforms all values in the table in-place.
+- `map_with_key()`: Transforms values using both the key and value.
+- `map_mut_with_key()`: Transforms values in-place using both the key and value.
+
+### Iterators
+
+- `iter()`, `iter_mut()`: Iterate over key-value pairs.
+- `keys()`: Iterate over keys.
+- `values()`, `values_mut()`: Iterate over values.
+
+### Conversions
+
+The `EnumTable` can be converted to and from other standard collections.
+
+#### From `EnumTable`
+
+- `into_vec()`: Converts the table into a `Vec<(K, V)>`.
+- `into_hash_map()`: Converts the table into a `HashMap<K, V>`. Requires the enum key to implement `Eq + Hash`.
+- `into_btree_map()`: Converts the table into a `BTreeMap<K, V>`. Requires the enum key to implement `Ord`.
+
+#### To `EnumTable`
+
+- `try_from_vec()`: Creates a table from a `Vec<(K, V)>`. Returns an error if any variant is missing or duplicated.
+- `try_from_hash_map()`: Creates a table from a `HashMap<K, V>`. Returns `None` if the map does not contain exactly one entry for each variant.
+- `try_from_btree_map()`: Creates a table from a `BTreeMap<K, V>`. Returns `None` if the map does not contain exactly one entry for each variant.
 
 For complete API documentation, visit [docs.rs/enum-table](https://docs.rs/enum-table/latest/enum_table/struct.EnumTable.html).
 
