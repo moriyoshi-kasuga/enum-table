@@ -1,3 +1,19 @@
+## [enum-table-v2.1.0] - 2025-08-24
+
+### 🚀 Features
+
+- Add map_with_key and map_mut_with_key fn
+
+### 📚 Documentation
+
+- Update changelog
+- *(README)* Update crate version
+- *(README)* More powerful API explanation
+- *(README)* More clarify document
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v2.1.0
 ## [enum-table-v2.0.0] - 2025-08-22
 
 ### 🚀 Features
