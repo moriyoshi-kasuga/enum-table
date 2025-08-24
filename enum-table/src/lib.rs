@@ -32,9 +32,25 @@ pub trait Enumable: Copy + 'static {
 /// A table that associates each variant of an enumeration with a value.
 ///
 /// `EnumTable` is a generic struct that uses an enumeration as keys and stores
-/// associated values. It provides constant-time access to the values based on
-/// the enumeration variant. This is particularly useful when you want to map
-/// enum variants to specific values without the overhead of a `HashMap`.
+/// associated values. It provides efficient logarithmic-time access (O(log N))
+/// to the values based on the enumeration variant. This is particularly useful
+/// when you want to map enum variants to specific values without the overhead
+/// of a `HashMap`.
+///
+/// # Guarantees and Design
+///
+/// The core design principle of `EnumTable` is that an instance is guaranteed to hold a
+/// value for every variant of the enum `K`. This guarantee allows for a cleaner API
+/// than general-purpose map structures.
+///
+/// For example, the [`Self::get`] method returns `&V` directly. This is in contrast to
+/// [`std::collections::HashMap::get`], which returns an `Option<&V>` because a key may or may not be
+/// present. With `EnumTable`, the presence of all keys (variants) is a type-level
+/// invariant, eliminating the need for `unwrap()` or other `Option` handling.
+///
+/// If you need to handle cases where a value might not be present or will be set
+/// later, you can use `Option<V>` as the value type: `EnumTable<K, Option<V>, N>`.
+/// The struct provides convenient methods like [`Self::new_fill_with_none`] for this pattern.
 ///
 /// # Type Parameters
 ///
@@ -44,12 +60,6 @@ pub trait Enumable: Copy + 'static {
 /// * `V`: The type of values to be associated with each enum variant.
 /// * `N`: The number of variants in the enum, which should match the length of
 ///   the static array of variants provided by the `Enumable` trait.
-///
-/// # Note
-/// The `new` method allows for the creation of an `EnumTable` in `const` contexts,
-/// but it does not perform compile-time checks. For enhanced compile-time safety
-/// and convenience, it is advisable to use the [`crate::et`] macro or
-/// [`crate::builder::EnumTableBuilder`], which provide these checks.
 ///
 /// # Examples
 ///
