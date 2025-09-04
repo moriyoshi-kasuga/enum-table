@@ -1,3 +1,21 @@
+## [enum-table-v2.1.1] - 2025-09-04
+
+### 🐛 Bug Fixes
+
+- Resolve incorrect variant retrieval on big-endian architectures
+
+### 🚜 Refactor
+
+- Streamline internal `as_usize` macro
+
+### 📚 Documentation
+
+- Update changelog
+
+### ⚙️ Miscellaneous Tasks
+
+- Add update.py
+- Release v2.1.1
 ## [enum-table-v2.1.0] - 2025-08-24
 
 ### 🚀 Features
