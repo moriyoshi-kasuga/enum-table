@@ -21,18 +21,18 @@ pub(crate) const fn into_variant<T: Copy>(u: usize) -> T {
 #[inline(always)]
 pub(crate) const fn to_usize<T>(t: &T) -> usize {
     macro_rules! as_usize {
-        ($t:ident as $type:ident) => {
+        ($type:ident) => {
             unsafe { *(t as *const T as *const $type) as usize }
         };
     }
 
     match const { core::mem::size_of::<T>() } {
-        1 => as_usize!(t as u8),
-        2 => as_usize!(t as u16),
-        4 => as_usize!(t as u32),
+        1 => as_usize!(u8),
+        2 => as_usize!(u16),
+        4 => as_usize!(u32),
 
         #[cfg(target_pointer_width = "64")]
-        8 => as_usize!(t as u64),
+        8 => as_usize!(u64),
         #[cfg(target_pointer_width = "32")]
         8 => panic!(
             "enum-table: Cannot handle 64-bit enum discriminants on 32-bit architecture. Consider using smaller discriminant values or compile for 64-bit target."
