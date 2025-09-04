@@ -1,11 +1,15 @@
 #[inline(always)]
 pub(crate) const fn cast_variant<T>(u: &usize) -> &T {
+    #[cfg(target_endian = "big")]
     unsafe {
-        // SAFETY: This function is only called with usize values that were originally
-        // derived from valid enum discriminants via to_usize(). The transmute is safe
-        // because we maintain the invariant that the usize was created from a T of the
-        // same type and the memory layout is preserved.
-        core::mem::transmute::<&usize, &T>(u)
+        &*(u as *const usize)
+            .cast::<u8>()
+            .add(core::mem::size_of::<usize>() - core::mem::size_of::<T>())
+            .cast::<T>()
+    }
+    #[cfg(target_endian = "little")]
+    unsafe {
+        &*(u as *const usize as *const T)
     }
 }
 
