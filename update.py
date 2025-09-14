@@ -9,7 +9,7 @@ from typing import List
 # --- Configuration ---
 CARGO_TOML_FILE = Path("Cargo.toml")
 README_FILE = Path("README.md")
-TARGET_CRATES = ["enum-table", "enum-table-derive"]
+TARGET_CRATES = ["enum-table-derive", "enum-table"]
 
 
 def run_command(cmd: List[str], exit_on_error=True):
