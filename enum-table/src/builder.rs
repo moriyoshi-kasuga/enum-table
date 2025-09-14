@@ -1,6 +1,6 @@
 use core::mem::MaybeUninit;
 
-use crate::{EnumTable, Enumable, intrinsics::to_usize};
+use crate::{EnumTable, Enumable};
 
 /// A builder for creating an `EnumTable` with a specified number of elements.
 ///
@@ -40,8 +40,7 @@ use crate::{EnumTable, Enumable, intrinsics::to_usize};
 /// ```
 pub struct EnumTableBuilder<K: Enumable, V, const N: usize> {
     idx: usize,
-    table: MaybeUninit<[(usize, V); N]>,
-    _phantom: core::marker::PhantomData<K>,
+    table: MaybeUninit<[(K, V); N]>,
 }
 
 impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
@@ -54,7 +53,6 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
         Self {
             idx: 0,
             table: MaybeUninit::uninit(),
-            _phantom: core::marker::PhantomData,
         }
     }
 
@@ -74,12 +72,12 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
     pub const unsafe fn push_unchecked(&mut self, variant: &K, value: V) {
         debug_assert!(self.idx < N, "EnumTableBuilder: too many elements pushed");
 
-        let element = (to_usize(variant), value);
+        let element = (*variant, value);
 
         unsafe {
             self.table
                 .as_mut_ptr()
-                .cast::<(usize, V)>()
+                .cast::<(K, V)>()
                 .add(self.idx)
                 .write(element);
         }
@@ -96,16 +94,20 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
     ///
     /// # Returns
     ///
-    /// An array of tuples where each tuple contains a discriminant of an enumeration
+    /// An array of tuples where each tuple contains an enumeration
     /// variant and its associated value.
-    pub const unsafe fn build_unchecked(self) -> [(usize, V); N] {
-        // We can't use debug_assert_eq! in const context, so use a simpler assertion
-        // debug_assert_eq!(self.idx, N, "EnumTableBuilder: not enough elements");
+    pub const unsafe fn build_unchecked(self) -> [(K, V); N] {
+        #[cfg(debug_assertions)]
+        assert!(
+            self.idx == N,
+            "EnumTableBuilder: not all elements have been pushed"
+        );
 
-        const fn is_sorted<const N: usize, V>(arr: &[(usize, V); N]) -> bool {
+        #[cfg(debug_assertions)]
+        const fn is_sorted<const N: usize, K, V>(arr: &[(K, V); N]) -> bool {
             let mut i = 0;
             while i < N - 1 {
-                if arr[i].0 >= arr[i + 1].0 {
+                if !crate::intrinsics::const_enum_lt(&arr[i].0, &arr[i + 1].0) {
                     return false;
                 }
                 i += 1;
@@ -116,7 +118,8 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
         // SAFETY: Caller guarantees that the table is filled.
         let table = unsafe { self.table.assume_init() };
 
-        debug_assert!(
+        #[cfg(debug_assertions)]
+        assert!(
             is_sorted(&table),
             "EnumTableBuilder: elements are not sorted by discriminant. Ensure that the elements are pushed in the correct order."
         );

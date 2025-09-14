@@ -18,8 +18,6 @@ pub use impls::*;
 
 mod macros;
 
-use intrinsics::{cast_variant, into_variant, to_usize};
-
 /// A trait for enumerations that can be used with `EnumTable`.
 ///
 /// This trait requires that the enumeration provides a static array of its variants
@@ -86,14 +84,13 @@ pub trait Enumable: Copy + 'static {
 /// assert_eq!(table.get(&Color::Blue), &"Blue");
 /// ```
 pub struct EnumTable<K: Enumable, V, const N: usize> {
-    table: [(usize, V); N],
-    _phantom: core::marker::PhantomData<K>,
+    table: [(K, V); N],
 }
 
 impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
-    /// Creates a new `EnumTable` with the given table of discriminants and values.
+    /// Creates a new `EnumTable` with the given table of variants and values.
     /// Typically, you would use the [`crate::et`] macro or [`crate::builder::EnumTableBuilder`] to create an `EnumTable`.
-    pub(crate) const fn new(table: [(usize, V); N]) -> Self {
+    pub(crate) const fn new(table: [(K, V); N]) -> Self {
         #[cfg(debug_assertions)]
         const {
             // Ensure that the variants are sorted by their discriminants.
@@ -105,10 +102,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
             }
         }
 
-        Self {
-            table,
-            _phantom: core::marker::PhantomData,
-        }
+        Self { table }
     }
 
     /// Create a new EnumTable with a function that takes a variant and returns a value.
@@ -164,13 +158,12 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     }
 
     pub(crate) const fn binary_search(&self, variant: &K) -> usize {
-        let discriminant = to_usize(variant);
         let mut low = 0;
         let mut high = N;
 
         while low < high {
             let mid = low + (high - low) / 2;
-            if self.table[mid].0 < discriminant {
+            if intrinsics::const_enum_lt(&self.table[mid].0, variant) {
                 low = mid + 1;
             } else {
                 high = mid;
@@ -225,9 +218,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
 
     /// Returns an iterator over references to the keys in the table.
     pub fn keys(&self) -> impl Iterator<Item = &K> {
-        self.table
-            .iter()
-            .map(|(discriminant, _)| cast_variant(discriminant))
+        self.table.iter().map(|(discriminant, _)| discriminant)
     }
 
     /// Returns an iterator over references to the values in the table.
@@ -244,14 +235,14 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
         self.table
             .iter()
-            .map(|(discriminant, value)| (cast_variant(discriminant), value))
+            .map(|(discriminant, value)| (discriminant, value))
     }
 
     /// Returns an iterator over mutable references to the values in the table.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (&K, &mut V)> {
         self.table
             .iter_mut()
-            .map(|(discriminant, value)| (cast_variant(discriminant), value))
+            .map(|(discriminant, value)| (&*discriminant, value))
     }
 
     /// Transforms all values in the table using the provided function.
@@ -305,7 +296,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     pub fn map_with_key<U>(self, mut f: impl FnMut(&K, V) -> U) -> EnumTable<K, U, N> {
         EnumTable::new(
             self.table
-                .map(|(discriminant, value)| (discriminant, f(cast_variant(&discriminant), value))),
+                .map(|(discriminant, value)| (discriminant, f(&discriminant, value))),
         )
     }
 
@@ -352,7 +343,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// * `f` - A closure that takes a key reference and a mutable reference to a value, and modifies it.
     pub fn map_mut_with_key(&mut self, mut f: impl FnMut(&K, &mut V)) {
         self.table.iter_mut().for_each(|(discriminant, value)| {
-            f(cast_variant(discriminant), value);
+            f(discriminant, value);
         });
     }
 }
@@ -602,12 +593,11 @@ mod tests {
 
     #[test]
     fn map() {
-        let table =
-            EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
-                Color::Red => 1,
-                Color::Green => 2,
-                Color::Blue => 3,
-            });
+        let table = EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
+            Color::Red => 1,
+            Color::Green => 2,
+            Color::Blue => 3,
+        });
 
         let doubled = table.map(|value| value * 2);
 
@@ -618,15 +608,14 @@ mod tests {
 
     #[test]
     fn map_with_key() {
-        let table =
-            EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
-                Color::Red => 1,
-                Color::Green => 2,
-                Color::Blue => 3,
-            });
+        let table = EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
+            Color::Red => 1,
+            Color::Green => 2,
+            Color::Blue => 3,
+        });
 
         let mapped = table.map_with_key(|key, value| match key {
-            Color::Red => value + 10,    // 1 + 10 = 11
+            Color::Red => value + 10,   // 1 + 10 = 11
             Color::Green => value + 20, // 2 + 20 = 22
             Color::Blue => value + 30,  // 3 + 30 = 33
         });

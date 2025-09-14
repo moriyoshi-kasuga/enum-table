@@ -1,4 +1,4 @@
-use crate::{EnumTable, Enumable, builder::EnumTableBuilder, into_variant, to_usize};
+use crate::{EnumTable, Enumable, builder::EnumTableBuilder};
 
 /// Error type for `EnumTable::try_from_vec`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -53,10 +53,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// assert_eq!(vec.len(), 3);
     /// ```
     pub fn into_vec(self) -> Vec<(K, V)> {
-        self.table
-            .into_iter()
-            .map(|(discriminant, value)| (into_variant(discriminant), value))
-            .collect()
+        self.table.into_iter().collect()
     }
 
     /// Creates an `EnumTable` from a `Vec` of key-value pairs.
@@ -104,7 +101,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
         for variant in K::VARIANTS {
             if let Some(pos) = vec
                 .iter()
-                .position(|(k, _)| to_usize(k) == to_usize(variant))
+                .position(|(k, _)| crate::intrinsics::const_enum_eq(k, variant))
             {
                 let (_, value) = vec.swap_remove(pos);
                 unsafe {

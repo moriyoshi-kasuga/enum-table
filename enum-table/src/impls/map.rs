@@ -3,7 +3,7 @@ use std::{
     hash::Hash,
 };
 
-use crate::{EnumTable, Enumable, et, intrinsics::into_variant};
+use crate::{EnumTable, Enumable, et};
 
 impl<K: Enumable + Eq + Hash + core::fmt::Debug, V, const N: usize> EnumTable<K, V, N> {
     /// Converts the `EnumTable` into a `HashMap`.
@@ -37,10 +37,7 @@ impl<K: Enumable + Eq + Hash + core::fmt::Debug, V, const N: usize> EnumTable<K,
     /// assert_eq!(hash_map.len(), 3);
     /// ```
     pub fn into_hash_map(self) -> HashMap<K, V> {
-        self.table
-            .into_iter()
-            .map(|(discriminant, value)| (into_variant(discriminant), value))
-            .collect()
+        self.table.into_iter().collect()
     }
 
     /// Creates an `EnumTable` from a `HashMap`.
@@ -140,10 +137,7 @@ impl<K: Enumable + Ord, V, const N: usize> EnumTable<K, V, N> {
     /// assert_eq!(btree_map.len(), 3);
     /// ```
     pub fn into_btree_map(self) -> BTreeMap<K, V> {
-        self.table
-            .into_iter()
-            .map(|(discriminant, value)| (into_variant(discriminant), value))
-            .collect()
+        self.table.into_iter().collect()
     }
 
     /// Creates an `EnumTable` from a `BTreeMap`.

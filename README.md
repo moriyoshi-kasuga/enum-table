@@ -314,30 +314,31 @@ creating a table, getting values, and setting values.
 <summary>Benchmark results</summary>
 
 ```text
-EnumTable::new_with_fn  time:   [295.20 ps 302.47 ps 313.13 ps]
-Found 4 outliers among 100 measurements (4.00%)
-  2 (2.00%) high mild
-  2 (2.00%) high severe
+EnumTable::new_with_fn  time:   [257.10 ps 258.88 ps 260.82 ps]
+Found 9 outliers among 100 measurements (9.00%)
+  1 (1.00%) low mild
+  4 (4.00%) high mild
+  4 (4.00%) high severe
 
-EnumTable::get          time:   [286.89 ps 287.14 ps 287.50 ps]
-Found 12 outliers among 100 measurements (12.00%)
-  5 (5.00%) high mild
+EnumTable::get          time:   [275.33 ps 293.95 ps 316.78 ps]
+Found 9 outliers among 100 measurements (9.00%)
+  3 (3.00%) high mild
+  6 (6.00%) high severe
+
+HashMap::get            time:   [13.368 ns 13.541 ns 13.765 ns]
+Found 11 outliers among 100 measurements (11.00%)
+  4 (4.00%) high mild
   7 (7.00%) high severe
 
-HashMap::get            time:   [7.7062 ns 7.7122 ns 7.7188 ns]
-Found 8 outliers among 100 measurements (8.00%)
-  3 (3.00%) high mild
-  5 (5.00%) high severe
-
-EnumTable::set          time:   [287.01 ps 287.12 ps 287.25 ps]
-Found 12 outliers among 100 measurements (12.00%)
-  1 (1.00%) low mild
-  3 (3.00%) high mild
-  8 (8.00%) high severe
-
-HashMap::insert         time:   [9.2064 ns 9.2242 ns 9.2541 ns]
-Found 4 outliers among 100 measurements (4.00%)
+EnumTable::set          time:   [260.57 ps 263.15 ps 267.08 ps]
+Found 5 outliers among 100 measurements (5.00%)
   2 (2.00%) high mild
+  3 (3.00%) high severe
+
+HashMap::insert         time:   [15.664 ns 15.753 ns 15.844 ns]
+Found 7 outliers among 100 measurements (7.00%)
+  2 (2.00%) low mild
+  3 (3.00%) high mild
   2 (2.00%) high severe
 ```
 
