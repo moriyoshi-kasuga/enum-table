@@ -73,7 +73,7 @@ def main():
     print(f"Updating {CARGO_TOML_FILE}...")
     new_cargo_content = re.sub(
         r'^version = ".+"$',
-        f'version = "{target_version}"\n',
+        f'version = "{target_version}"',
         cargo_content,
         count=1,
         flags=re.MULTILINE,
