@@ -1,3 +1,17 @@
+## [enum-table-v2.1.2] - 2025-09-14
+
+### 🚜 Refactor
+
+- *(enum-table)* Store enum variants directly instead of discriminants
+
+### 📚 Documentation
+
+- Update changelog
+
+### ⚙️ Miscellaneous Tasks
+
+- Normalize newline in Cargo.toml
+- Release v2.1.2
 ## [enum-table-v2.1.1] - 2025-09-04
 
 ### 🐛 Bug Fixes
