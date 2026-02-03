@@ -1,3 +1,5 @@
+mod iter;
+
 mod core;
 
 #[cfg(feature = "std")]

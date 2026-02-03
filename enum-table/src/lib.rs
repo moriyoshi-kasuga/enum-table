@@ -160,7 +160,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// * `Ok(Self)` if all variants succeed.
     /// * `Err(variant)` if any variant fails, containing the failing variant.
     pub fn checked_new_with_fn(mut f: impl FnMut(&K) -> Option<V>) -> Result<Self, K> {
-        Ok(et!(K, V, { N }, |variant| f(variant).ok_or(*variant)?))
+        Ok(et!(K, V, { N }, |variant| f(variant).ok_or_else(|| *variant)?))
     }
 
     pub(crate) const fn binary_search(&self, variant: &K) -> usize {
@@ -222,37 +222,6 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
         false
     }
 
-    /// Returns an iterator over references to the keys in the table.
-    pub fn keys(&self) -> impl Iterator<Item = &K> {
-        K::VARIANTS.iter()
-    }
-
-    /// Returns an iterator over references to the values in the table.
-    pub fn values(&self) -> impl Iterator<Item = &V> {
-        self.table.iter()
-    }
-
-    /// Returns an iterator over mutable references to the values in the table.
-    pub fn values_mut(&mut self) -> impl Iterator<Item = &mut V> {
-        self.table.iter_mut()
-    }
-
-    /// Returns an iterator over mutable references to the values in the table.
-    pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
-        self.table
-            .iter()
-            .enumerate()
-            .map(|(i, value)| (&K::VARIANTS[i], value))
-    }
-
-    /// Returns an iterator over mutable references to the values in the table.
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&K, &mut V)> {
-        self.table
-            .iter_mut()
-            .enumerate()
-            .map(|(i, value)| (&K::VARIANTS[i], value))
-    }
-
     /// Transforms all values in the table using the provided function.
     ///
     /// This method consumes the table and creates a new one with values
@@ -301,8 +270,9 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     pub fn map_with_key<U>(self, mut f: impl FnMut(&K, V) -> U) -> EnumTable<K, U, N> {
         let mut i = 0;
         EnumTable::new(self.table.map(|value| {
+            let j = i;
             i += 1;
-            f(&K::VARIANTS[i], value)
+            f(&K::VARIANTS[j], value)
         }))
     }
 
@@ -357,7 +327,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
 impl<K: Enumable, V, const N: usize> EnumTable<K, Option<V>, N> {
     /// Creates a new `EnumTable` with `None` values for each variant.
     pub const fn new_fill_with_none() -> Self {
-        et!(K, Option<V>, { N }, |variant| None)
+        Self::new([const { None }; N])
     }
 
     /// Clears the table, setting each value to `None`.
@@ -397,7 +367,7 @@ impl<K: Enumable, V: Copy, const N: usize> EnumTable<K, V, N> {
     /// assert_eq!(table.get(&Status::Pending), &42);
     /// ```
     pub const fn new_fill_with_copy(value: V) -> Self {
-        et!(K, V, { N }, |variant| value)
+        Self::new([value; N])
     }
 }
 
