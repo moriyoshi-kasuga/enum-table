@@ -1,3 +1,4 @@
+use core::marker::PhantomData;
 use core::ops::{Index, IndexMut};
 
 use crate::{EnumTable, Enumable};
@@ -14,6 +15,7 @@ impl<K: Enumable, V: Clone, const N: usize> Clone for EnumTable<K, V, N> {
     fn clone(&self) -> Self {
         Self {
             table: self.table.clone(),
+            _phantom: PhantomData,
         }
     }
 }
@@ -22,29 +24,19 @@ impl<K: Enumable, V: Copy, const N: usize> Copy for EnumTable<K, V, N> {}
 
 impl<K: Enumable, V: PartialEq, const N: usize> PartialEq for EnumTable<K, V, N> {
     fn eq(&self, other: &Self) -> bool {
-        // Manually implement `PartialEq` to avoid adding a `K: PartialEq` bound,
-        // which would be a breaking change. We can compare the enum discriminants
-        // directly using intrinsics.
-        let mut i = 0;
-        while i < N {
-            if crate::intrinsics::const_enum_eq(&self.table[i].0, &other.table[i].0)
-                && self.table[i].1 == other.table[i].1
-            {
-                i += 1;
-            } else {
-                return false;
-            }
-        }
-        true
+        self.table.eq(&other.table)
     }
 }
 
 impl<K: Enumable, V: Eq, const N: usize> Eq for EnumTable<K, V, N> {}
 
-impl<K: Enumable, V: core::hash::Hash, const N: usize> core::hash::Hash for EnumTable<K, V, N> {
+impl<K: Enumable + core::hash::Hash, V: core::hash::Hash, const N: usize> core::hash::Hash
+    for EnumTable<K, V, N>
+{
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-        for (discriminant, value) in self.table.iter() {
-            crate::intrinsics::hash(discriminant, state);
+        state.write_usize(self.len());
+        for (discriminant, value) in self.iter() {
+            discriminant.hash(state);
             value.hash(state);
         }
     }
@@ -75,7 +67,11 @@ impl<K: Enumable, V, const N: usize> IntoIterator for EnumTable<K, V, N> {
     type IntoIter = core::array::IntoIter<(K, V), N>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.table.into_iter()
+        todo!()
+        // self.table
+        //     .into_iter()
+        //     .enumerate()
+        //     .map(|(i, v)| K::VARIANTS[i], v)
     }
 }
 
@@ -85,9 +81,7 @@ impl<'a, K: Enumable, V, const N: usize> IntoIterator for &'a EnumTable<K, V, N>
         core::iter::Map<core::slice::Iter<'a, (K, V)>, fn(&'a (K, V)) -> (&'a K, &'a V)>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.table
-            .iter()
-            .map(|(discriminant, value)| (discriminant, value))
+        todo!()
     }
 }
 
@@ -97,9 +91,7 @@ impl<'a, K: Enumable, V, const N: usize> IntoIterator for &'a mut EnumTable<K, V
         core::iter::Map<core::slice::IterMut<'a, (K, V)>, fn(&'a mut (K, V)) -> (&'a K, &'a mut V)>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.table
-            .iter_mut()
-            .map(|(discriminant, value)| (discriminant, value))
+        todo!()
     }
 }
 

@@ -119,8 +119,15 @@ You can create `EnumTable` instances at compile time with zero runtime overhead 
 This is ideal for static lookup tables.
 
 ```rust
-# use enum_table::{EnumTable, Enumable};
-# #[derive(Enumable, Copy, Clone)] #[repr(u8)] enum Test { A = 100, B = 1, C }
+use enum_table::{EnumTable, Enumable};
+#[derive(Enumable, Copy, Clone)]
+#[repr(u8)] 
+enum Test {
+    A = 100,
+    B = 1,
+    C
+}
+
 // This table is built at compile time and baked into the binary.
 static TABLE: EnumTable<Test, &'static str, { Test::COUNT }> =
   enum_table::et!(Test, &'static str, |t| match t {
@@ -145,8 +152,6 @@ serde_json = "1.0"
 ```
 
 ```rust
-# #[cfg(feature = "serde")]
-# {
 use enum_table::{EnumTable, Enumable};
 use serde::{Serialize, Deserialize};
 
@@ -172,7 +177,6 @@ let deserialized: EnumTable<Status, &str, { Status::COUNT }> =
     serde_json::from_str(&json).unwrap();
 
 assert_eq!(table, deserialized);
-# }
 ```
 
 ### Error Handling and Alternative Constructors
@@ -250,11 +254,12 @@ The `EnumTable` can be converted to and from other standard collections.
   Requires the enum key to implement `Ord`.
 
 ```rust
-# use enum_table::{EnumTable, Enumable};
-# #[derive(Enumable, Debug, PartialEq, Eq, Hash, Copy, Clone)] enum Color { Red, Green, Blue }
-# let table = EnumTable::<Color, &'static str, 3>::new_with_fn(|c| match c {
-#     Color::Red => "red", Color::Green => "green", Color::Blue => "blue",
-# });
+use enum_table::{EnumTable, Enumable};
+#[derive(Enumable, Debug, PartialEq, Eq, Hash, Copy, Clone)] enum Color { Red, Green, Blue }
+let table = EnumTable::<Color, &'static str, 3>::new_with_fn(|c| match c {
+    Color::Red => "red", Color::Green => "green", Color::Blue => "blue",
+});
+
 // Example: Convert to a Vec
 let vec = table.into_vec();
 assert_eq!(vec.len(), 3);
@@ -271,9 +276,10 @@ assert!(vec.contains(&(Color::Red, "red")));
   Returns `None` if the map does not contain exactly one entry for each variant.
 
 ```rust
-# use enum_table::{EnumTable, Enumable};
-# use std::collections::HashMap;
-# #[derive(Enumable, Debug, PartialEq, Eq, Hash, Copy, Clone)] enum Color { Red, Green, Blue }
+use enum_table::{EnumTable, Enumable};
+use std::collections::HashMap;
+#[derive(Enumable, Debug, PartialEq, Eq, Hash, Copy, Clone)] enum Color { Red, Green, Blue }
+
 // Example: Create from a HashMap
 let mut map = HashMap::new();
 map.insert(Color::Red, 1);

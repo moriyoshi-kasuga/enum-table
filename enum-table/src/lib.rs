@@ -3,6 +3,8 @@
 #[cfg(test)]
 pub extern crate self as enum_table;
 
+use std::marker::PhantomData;
+
 #[cfg(feature = "derive")]
 pub use enum_table_derive::Enumable;
 
@@ -84,13 +86,14 @@ pub trait Enumable: Copy + 'static {
 /// assert_eq!(table.get(&Color::Blue), &"Blue");
 /// ```
 pub struct EnumTable<K: Enumable, V, const N: usize> {
-    table: [(K, V); N],
+    table: [V; N],
+    _phantom: PhantomData<K>,
 }
 
 impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// Creates a new `EnumTable` with the given table of variants and values.
     /// Typically, you would use the [`crate::et`] macro or [`crate::builder::EnumTableBuilder`] to create an `EnumTable`.
-    pub(crate) const fn new(table: [(K, V); N]) -> Self {
+    pub(crate) const fn new(table: [V; N]) -> Self {
         #[cfg(debug_assertions)]
         const {
             // Ensure that the variants are sorted by their discriminants.
@@ -102,7 +105,10 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
             }
         }
 
-        Self { table }
+        Self {
+            table,
+            _phantom: PhantomData,
+        }
     }
 
     /// Create a new EnumTable with a function that takes a variant and returns a value.
@@ -163,7 +169,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
 
         while low < high {
             let mid = low + (high - low) / 2;
-            if intrinsics::const_enum_lt(&self.table[mid].0, variant) {
+            if intrinsics::const_enum_lt(&K::VARIANTS[mid], variant) {
                 low = mid + 1;
             } else {
                 high = mid;
@@ -180,7 +186,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// * `variant` - A reference to an enumeration variant.
     pub const fn get(&self, variant: &K) -> &V {
         let idx = self.binary_search(variant);
-        &self.table[idx].1
+        &self.table[idx]
     }
 
     /// Returns a mutable reference to the value associated with the given enumeration variant.
@@ -190,7 +196,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// * `variant` - A reference to an enumeration variant.
     pub const fn get_mut(&mut self, variant: &K) -> &mut V {
         let idx = self.binary_search(variant);
-        &mut self.table[idx].1
+        &mut self.table[idx]
     }
 
     /// Sets the value associated with the given enumeration variant.
@@ -203,7 +209,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// The old value associated with the variant.
     pub const fn set(&mut self, variant: &K, value: V) -> V {
         let idx = self.binary_search(variant);
-        core::mem::replace(&mut self.table[idx].1, value)
+        core::mem::replace(&mut self.table[idx], value)
     }
 
     /// Returns the number of generic N
@@ -218,31 +224,33 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
 
     /// Returns an iterator over references to the keys in the table.
     pub fn keys(&self) -> impl Iterator<Item = &K> {
-        self.table.iter().map(|(discriminant, _)| discriminant)
+        K::VARIANTS.iter()
     }
 
     /// Returns an iterator over references to the values in the table.
     pub fn values(&self) -> impl Iterator<Item = &V> {
-        self.table.iter().map(|(_, value)| value)
+        self.table.iter()
     }
 
     /// Returns an iterator over mutable references to the values in the table.
     pub fn values_mut(&mut self) -> impl Iterator<Item = &mut V> {
-        self.table.iter_mut().map(|(_, value)| value)
+        self.table.iter_mut()
     }
 
     /// Returns an iterator over mutable references to the values in the table.
     pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
         self.table
             .iter()
-            .map(|(discriminant, value)| (discriminant, value))
+            .enumerate()
+            .map(|(i, value)| (&K::VARIANTS[i], value))
     }
 
     /// Returns an iterator over mutable references to the values in the table.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (&K, &mut V)> {
         self.table
             .iter_mut()
-            .map(|(discriminant, value)| (&*discriminant, value))
+            .enumerate()
+            .map(|(i, value)| (&K::VARIANTS[i], value))
     }
 
     /// Transforms all values in the table using the provided function.
@@ -279,10 +287,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// assert_eq!(doubled.get(&Size::Large), &6);
     /// ```
     pub fn map<U>(self, mut f: impl FnMut(V) -> U) -> EnumTable<K, U, N> {
-        EnumTable::new(
-            self.table
-                .map(|(discriminant, value)| (discriminant, f(value))),
-        )
+        EnumTable::new(self.table.map(|value| f(value)))
     }
 
     /// Transforms all values in the table using the provided function, with access to the key.
@@ -294,10 +299,11 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     ///
     /// * `f` - A closure that takes a key reference and an owned value, and returns a new value.
     pub fn map_with_key<U>(self, mut f: impl FnMut(&K, V) -> U) -> EnumTable<K, U, N> {
-        EnumTable::new(
-            self.table
-                .map(|(discriminant, value)| (discriminant, f(&discriminant, value))),
-        )
+        let mut i = 0;
+        EnumTable::new(self.table.map(|value| {
+            i += 1;
+            f(&K::VARIANTS[i], value)
+        }))
     }
 
     /// Transforms all values in the table in-place using the provided function.
@@ -331,7 +337,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// assert_eq!(table.get(&Level::High), &35);
     /// ```
     pub fn map_mut(&mut self, mut f: impl FnMut(&mut V)) {
-        self.table.iter_mut().for_each(|(_, value)| {
+        self.table.iter_mut().for_each(|value| {
             f(value);
         });
     }
@@ -342,8 +348,8 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     ///
     /// * `f` - A closure that takes a key reference and a mutable reference to a value, and modifies it.
     pub fn map_mut_with_key(&mut self, mut f: impl FnMut(&K, &mut V)) {
-        self.table.iter_mut().for_each(|(discriminant, value)| {
-            f(discriminant, value);
+        self.table.iter_mut().enumerate().for_each(|(i, value)| {
+            f(&K::VARIANTS[i], value);
         });
     }
 }
@@ -356,7 +362,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, Option<V>, N> {
 
     /// Clears the table, setting each value to `None`.
     pub fn clear_to_none(&mut self) {
-        for (_, value) in &mut self.table {
+        for value in &mut self.table {
             *value = None;
         }
     }
@@ -406,7 +412,7 @@ impl<K: Enumable, V: Default, const N: usize> EnumTable<K, V, N> {
 
     /// Clears the table, setting each value to its default.
     pub fn clear_to_default(&mut self) {
-        for (_, value) in &mut self.table {
+        for value in &mut self.table {
             *value = V::default();
         }
     }

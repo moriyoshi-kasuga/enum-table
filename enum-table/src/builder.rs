@@ -40,7 +40,8 @@ use crate::{EnumTable, Enumable};
 /// ```
 pub struct EnumTableBuilder<K: Enumable, V, const N: usize> {
     idx: usize,
-    table: MaybeUninit<[(K, V); N]>,
+    table: MaybeUninit<[V; N]>,
+    keys: MaybeUninit<[K; N]>,
 }
 
 impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
@@ -53,6 +54,7 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
         Self {
             idx: 0,
             table: MaybeUninit::uninit(),
+            keys: MaybeUninit::uninit(),
         }
     }
 
@@ -72,14 +74,18 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
     pub const unsafe fn push_unchecked(&mut self, variant: &K, value: V) {
         debug_assert!(self.idx < N, "EnumTableBuilder: too many elements pushed");
 
-        let element = (*variant, value);
-
         unsafe {
+            self.keys
+                .as_mut_ptr()
+                .cast::<K>()
+                .add(self.idx)
+                .write(*variant);
+
             self.table
                 .as_mut_ptr()
-                .cast::<(K, V)>()
+                .cast::<V>()
                 .add(self.idx)
-                .write(element);
+                .write(value);
         }
 
         self.idx += 1;
@@ -96,7 +102,7 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
     ///
     /// An array of tuples where each tuple contains an enumeration
     /// variant and its associated value.
-    pub const unsafe fn build_unchecked(self) -> [(K, V); N] {
+    pub const unsafe fn build_unchecked(self) -> [V; N] {
         #[cfg(debug_assertions)]
         assert!(
             self.idx == N,
@@ -104,10 +110,10 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
         );
 
         #[cfg(debug_assertions)]
-        const fn is_sorted<const N: usize, K, V>(arr: &[(K, V); N]) -> bool {
+        const fn is_sorted<const N: usize, K>(arr: &[K; N]) -> bool {
             let mut i = 0;
             while i < N - 1 {
-                if !crate::intrinsics::const_enum_lt(&arr[i].0, &arr[i + 1].0) {
+                if !crate::intrinsics::const_enum_lt(&arr[i], &arr[i + 1]) {
                     return false;
                 }
                 i += 1;
@@ -117,10 +123,11 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
 
         // SAFETY: Caller guarantees that the table is filled.
         let table = unsafe { self.table.assume_init() };
+        let keys = unsafe { self.keys.assume_init() };
 
         #[cfg(debug_assertions)]
         assert!(
-            is_sorted(&table),
+            is_sorted(&keys),
             "EnumTableBuilder: elements are not sorted by discriminant. Ensure that the elements are pushed in the correct order."
         );
 

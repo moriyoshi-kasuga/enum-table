@@ -53,7 +53,11 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// assert_eq!(vec.len(), 3);
     /// ```
     pub fn into_vec(self) -> Vec<(K, V)> {
-        self.table.into_iter().collect()
+        self.table
+            .into_iter()
+            .enumerate()
+            .map(|(i, v)| (K::VARIANTS[i], v))
+            .collect()
     }
 
     /// Creates an `EnumTable` from a `Vec` of key-value pairs.

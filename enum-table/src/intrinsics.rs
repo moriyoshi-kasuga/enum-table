@@ -30,28 +30,6 @@ pub(crate) const fn const_enum_lt<T>(left: &T, right: &T) -> bool {
     const_operator!(T, left (<) right)
 }
 
-pub(crate) fn hash<T, H: core::hash::Hasher>(t: &T, state: &mut H) {
-    use core::hash::Hash;
-
-    macro_rules! hash_as {
-        ($type:ident) => {
-            unsafe { (*(t as *const T as *const $type)).hash(state) }
-        };
-    }
-
-    match core::mem::size_of::<T>() {
-        1 => hash_as!(u8),
-        2 => hash_as!(u16),
-        4 => hash_as!(u32),
-        8 => hash_as!(u64),
-        16 => hash_as!(u128),
-
-        _ => panic!(
-            "enum-table: Enum discriminants larger than 128 bits are not supported. This is likely due to an extremely large enum or invalid memory layout."
-        ),
-    }
-}
-
 pub const fn sort_variants<const N: usize, T>(mut arr: [T; N]) -> [T; N] {
     let mut i = 1;
     while i < N {
