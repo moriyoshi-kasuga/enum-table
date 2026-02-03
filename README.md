@@ -80,8 +80,25 @@ Because manually ensuring this order is tedious and error-prone,
 **it is strongly recommended to use the derive macro `#[derive(Enumable)]`**.
 The derive macro automatically generates a correct, sorted `VARIANTS` array, guaranteeing proper behavior.
 
-It is also recommended (though optional) to use a `#[repr(u*)]` attribute on your enum.
-This ensures the size and alignment of the enum's discriminant are stable and well-defined.
+### Safety and Memory Layout
+
+It is **strongly recommended** to use a primitive representation (e.g., `#[repr(u8)]`) on your enum.
+This ensures that the enum has a stable memory layout without undefined padding bytes.
+
+**Note on Padding:** If your enum contains padding bytes (for example, by using `#[repr(u8, align(2))]`),
+the library will likely trigger a **compile-time error** during constant evaluation.
+This is because Rust's constant evaluator prevents reading uninitialized memory (padding).
+
+```rust
+use enum_table::Enumable;
+
+#[derive(Enumable, Copy, Clone)]
+#[repr(u8)] // <--- Recommended!
+enum MyEnum {
+    A,
+    B,
+}
+```
 
 ## Usage Examples
 

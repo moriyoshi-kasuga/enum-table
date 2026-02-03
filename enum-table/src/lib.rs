@@ -24,6 +24,16 @@ mod macros;
 ///
 /// This trait requires that the enumeration provides a static array of its variants
 /// and a constant representing the count of these variants.
+///
+/// # Safety
+///
+/// The implementations of this trait rely on the memory layout of the enum.
+/// It is strongly recommended to use a primitive representation (e.g., `#[repr(u8)]`)
+/// to ensure that the enum has no padding bytes and a stable layout.
+///
+/// **Note on Padding:** If the enum contains padding bytes (e.g., `#[repr(u8, align(2))]`),
+/// it will cause a **compile-time error** during constant evaluation, as Rust's
+/// constant evaluator does not allow reading uninitialized memory (padding).
 pub trait Enumable: Copy + 'static {
     const VARIANTS: &'static [Self];
     const COUNT: usize = Self::VARIANTS.len();
