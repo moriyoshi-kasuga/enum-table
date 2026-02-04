@@ -54,3 +54,40 @@ pub(crate) const fn is_sorted<T>(arr: &[T]) -> bool {
     }
     true
 }
+
+/// Finds the index of `variant` in the `variants` slice using const-compatible equality.
+///
+/// This function is intended to be called inside `const { }` blocks in the derive macro,
+/// so its O(N) cost is paid at compile time, not runtime.
+pub const fn variant_index_of<T>(variant: &T, variants: &[T]) -> usize {
+    let mut i = 0;
+    while i < variants.len() {
+        if const_enum_eq(variant, &variants[i]) {
+            return i;
+        }
+        i += 1;
+    }
+    panic!("enum-table: variant not found in VARIANTS array. This is a bug in the Enumable implementation.")
+}
+
+/// Binary search fallback for the default `Enumable::variant_index` implementation.
+///
+/// This provides O(log N) lookup for manual `Enumable` implementations
+/// that don't override `variant_index`.
+pub fn binary_search_index<T: crate::Enumable>(variant: &T) -> usize {
+    let variants = T::VARIANTS;
+    let n = variants.len();
+    let mut low = 0;
+    let mut high = n;
+
+    while low < high {
+        let mid = low + (high - low) / 2;
+        if const_enum_lt(&variants[mid], variant) {
+            low = mid + 1;
+        } else {
+            high = mid;
+        }
+    }
+
+    low
+}

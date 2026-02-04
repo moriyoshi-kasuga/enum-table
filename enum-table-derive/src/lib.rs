@@ -37,6 +37,14 @@ fn derive_enumable_internal(input: DeriveInput) -> Result<TokenStream> {
     let expanded = quote! {
         impl enum_table::Enumable for #ident {
             const VARIANTS: &'static [#ident] = &enum_table::__private::sort_variants([#(Self::#variant_idents),*]);
+
+            fn variant_index(&self) -> usize {
+                match *self {
+                    #(
+                        Self::#variant_idents => const { enum_table::__private::variant_index_of(&#ident::#variant_idents, <#ident as enum_table::Enumable>::VARIANTS) },
+                    )*
+                }
+            }
         }
     };
 

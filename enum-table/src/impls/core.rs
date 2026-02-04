@@ -44,7 +44,7 @@ impl<K: Enumable + core::hash::Hash, V: core::hash::Hash, const N: usize> core::
 
 impl<K: Enumable, V: Default, const N: usize> Default for EnumTable<K, V, N> {
     fn default() -> Self {
-        EnumTable::new_with_fn(|_| Default::default())
+        Self::new_fill_with_default()
     }
 }
 

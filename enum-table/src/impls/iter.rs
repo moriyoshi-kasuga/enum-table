@@ -16,12 +16,12 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
         self.table.iter_mut()
     }
 
-    /// Returns an iterator over mutable references to the values in the table.
+    /// Returns an iterator over references to the key-value pairs in the table.
     pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
         self.into_iter()
     }
 
-    /// Returns an iterator over mutable references to the values in the table.
+    /// Returns an iterator over mutable references to the key-value pairs in the table.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (&K, &mut V)> {
         self.into_iter()
     }

@@ -154,7 +154,7 @@ static TABLE: EnumTable<Test, &'static str, { Test::COUNT }> =
   });
 
 // Accessing the value is highly efficient as the table is pre-built.
-const A_VAL: &str = TABLE.get(&Test::A);
+const A_VAL: &str = TABLE.get_const(&Test::A);
 assert_eq!(A_VAL, "A");
 ```
 

@@ -37,11 +37,7 @@ impl<K: Enumable + Eq + Hash + core::fmt::Debug, V, const N: usize> EnumTable<K,
     /// assert_eq!(hash_map.len(), 3);
     /// ```
     pub fn into_hash_map(self) -> HashMap<K, V> {
-        self.table
-            .into_iter()
-            .enumerate()
-            .map(|(i, v)| (K::VARIANTS[i], v))
-            .collect()
+        self.into_iter().collect()
     }
 
     /// Creates an `EnumTable` from a `HashMap`.
@@ -141,11 +137,7 @@ impl<K: Enumable + Ord, V, const N: usize> EnumTable<K, V, N> {
     /// assert_eq!(btree_map.len(), 3);
     /// ```
     pub fn into_btree_map(self) -> BTreeMap<K, V> {
-        self.table
-            .into_iter()
-            .enumerate()
-            .map(|(i, v)| (K::VARIANTS[i], v))
-            .collect()
+        self.into_iter().collect()
     }
 
     /// Creates an `EnumTable` from a `BTreeMap`.
