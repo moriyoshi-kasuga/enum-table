@@ -1,5 +1,6 @@
-#[cfg(feature = "std")]
-mod std;
+mod iter;
+
+mod core;
 
 #[cfg(feature = "std")]
 mod map;

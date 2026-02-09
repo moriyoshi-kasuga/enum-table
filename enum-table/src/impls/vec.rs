@@ -1,4 +1,4 @@
-use crate::{EnumTable, Enumable, builder::EnumTableBuilder};
+use crate::{EnumTable, Enumable};
 
 /// Error type for `EnumTable::try_from_vec`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -53,7 +53,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// assert_eq!(vec.len(), 3);
     /// ```
     pub fn into_vec(self) -> Vec<(K, V)> {
-        self.table.into_iter().collect()
+        self.into_iter().collect()
     }
 
     /// Creates an `EnumTable` from a `Vec` of key-value pairs.
@@ -87,7 +87,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// assert_eq!(table.get(&Color::Green), &"green");
     /// assert_eq!(table.get(&Color::Blue), &"blue");
     /// ```
-    pub fn try_from_vec(mut vec: Vec<(K, V)>) -> Result<Self, EnumTableFromVecError<K>> {
+    pub fn try_from_vec(vec: Vec<(K, V)>) -> Result<Self, EnumTableFromVecError<K>> {
         if vec.len() != N {
             return Err(EnumTableFromVecError::InvalidSize {
                 expected: N,
@@ -95,24 +95,19 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
             });
         }
 
-        let mut builder = EnumTableBuilder::<K, V, N>::new();
+        let mut slots: [Option<V>; N] = core::array::from_fn(|_| None);
 
-        // Check that all variants are present and move values out
-        for variant in K::VARIANTS {
-            if let Some(pos) = vec
-                .iter()
-                .position(|(k, _)| crate::intrinsics::const_enum_eq(k, variant))
-            {
-                let (_, value) = vec.swap_remove(pos);
-                unsafe {
-                    builder.push_unchecked(variant, value);
-                }
-            } else {
-                return Err(EnumTableFromVecError::MissingVariant(*variant));
-            }
+        for (key, value) in vec {
+            slots[key.variant_index()] = Some(value);
         }
 
-        Ok(unsafe { builder.build_to_unchecked() })
+        let table = crate::intrinsics::try_collect_array(|i| {
+            slots[i]
+                .take()
+                .ok_or(EnumTableFromVecError::MissingVariant(K::VARIANTS[i]))
+        })?;
+
+        Ok(Self::new(table))
     }
 }
 

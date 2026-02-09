@@ -1,3 +1,4 @@
+use core::marker::PhantomData;
 use core::ops::{Index, IndexMut};
 
 use crate::{EnumTable, Enumable};
@@ -14,6 +15,7 @@ impl<K: Enumable, V: Clone, const N: usize> Clone for EnumTable<K, V, N> {
     fn clone(&self) -> Self {
         Self {
             table: self.table.clone(),
+            _phantom: PhantomData,
         }
     }
 }
@@ -22,37 +24,23 @@ impl<K: Enumable, V: Copy, const N: usize> Copy for EnumTable<K, V, N> {}
 
 impl<K: Enumable, V: PartialEq, const N: usize> PartialEq for EnumTable<K, V, N> {
     fn eq(&self, other: &Self) -> bool {
-        // Manually implement `PartialEq` to avoid adding a `K: PartialEq` bound,
-        // which would be a breaking change. We can compare the enum discriminants
-        // directly using intrinsics.
-        let mut i = 0;
-        while i < N {
-            if crate::intrinsics::const_enum_eq(&self.table[i].0, &other.table[i].0)
-                && self.table[i].1 == other.table[i].1
-            {
-                i += 1;
-            } else {
-                return false;
-            }
-        }
-        true
+        self.table.eq(&other.table)
     }
 }
 
 impl<K: Enumable, V: Eq, const N: usize> Eq for EnumTable<K, V, N> {}
 
-impl<K: Enumable, V: core::hash::Hash, const N: usize> core::hash::Hash for EnumTable<K, V, N> {
+impl<K: Enumable, V: core::hash::Hash, const N: usize> core::hash::Hash
+    for EnumTable<K, V, N>
+{
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-        for (discriminant, value) in self.table.iter() {
-            crate::intrinsics::hash(discriminant, state);
-            value.hash(state);
-        }
+        self.table.hash(state);
     }
 }
 
 impl<K: Enumable, V: Default, const N: usize> Default for EnumTable<K, V, N> {
     fn default() -> Self {
-        EnumTable::new_with_fn(|_| Default::default())
+        Self::new_fill_with_default()
     }
 }
 
@@ -70,36 +58,29 @@ impl<K: Enumable, V, const N: usize> IndexMut<K> for EnumTable<K, V, N> {
     }
 }
 
-impl<K: Enumable, V, const N: usize> IntoIterator for EnumTable<K, V, N> {
-    type Item = (K, V);
-    type IntoIter = core::array::IntoIter<(K, V), N>;
+impl<K: Enumable, V, const N: usize> Index<&K> for EnumTable<K, V, N> {
+    type Output = V;
 
-    fn into_iter(self) -> Self::IntoIter {
-        self.table.into_iter()
+    fn index(&self, index: &K) -> &Self::Output {
+        self.get(index)
     }
 }
 
-impl<'a, K: Enumable, V, const N: usize> IntoIterator for &'a EnumTable<K, V, N> {
-    type Item = (&'a K, &'a V);
-    type IntoIter =
-        core::iter::Map<core::slice::Iter<'a, (K, V)>, fn(&'a (K, V)) -> (&'a K, &'a V)>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.table
-            .iter()
-            .map(|(discriminant, value)| (discriminant, value))
+impl<K: Enumable, V, const N: usize> IndexMut<&K> for EnumTable<K, V, N> {
+    fn index_mut(&mut self, index: &K) -> &mut Self::Output {
+        self.get_mut(index)
     }
 }
 
-impl<'a, K: Enumable, V, const N: usize> IntoIterator for &'a mut EnumTable<K, V, N> {
-    type Item = (&'a K, &'a mut V);
-    type IntoIter =
-        core::iter::Map<core::slice::IterMut<'a, (K, V)>, fn(&'a mut (K, V)) -> (&'a K, &'a mut V)>;
+impl<K: Enumable, V, const N: usize> AsRef<[V]> for EnumTable<K, V, N> {
+    fn as_ref(&self) -> &[V] {
+        self.as_slice()
+    }
+}
 
-    fn into_iter(self) -> Self::IntoIter {
-        self.table
-            .iter_mut()
-            .map(|(discriminant, value)| (discriminant, value))
+impl<K: Enumable, V, const N: usize> AsMut<[V]> for EnumTable<K, V, N> {
+    fn as_mut(&mut self) -> &mut [V] {
+        self.as_mut_slice()
     }
 }
 
@@ -177,35 +158,16 @@ mod tests {
     }
 
     #[test]
-    fn into_iter_impl() {
-        let mut iter = TABLES.into_iter();
-        assert_eq!(iter.next(), Some((Color::Red, "Red")));
-        assert_eq!(iter.next(), Some((Color::Green, "Green")));
-        assert_eq!(iter.next(), Some((Color::Blue, "Blue")));
-        assert_eq!(iter.next(), None);
+    fn as_ref_impl() {
+        let slice: &[&str] = TABLES.as_ref();
+        assert_eq!(slice.len(), 3);
     }
 
     #[test]
-    fn into_iter_ref_impl() {
-        let mut iter = (&TABLES).into_iter();
-        assert_eq!(iter.next(), Some((&Color::Red, &"Red")));
-        assert_eq!(iter.next(), Some((&Color::Green, &"Green")));
-        assert_eq!(iter.next(), Some((&Color::Blue, &"Blue")));
-        assert_eq!(iter.next(), None);
-    }
-
-    #[test]
-    fn into_iter_mut_impl() {
-        let mut mutable_table = TABLES;
-        let mut iter = (&mut mutable_table).into_iter();
-        assert_eq!(iter.next(), Some((&Color::Red, &mut "Red")));
-        assert_eq!(iter.next(), Some((&Color::Green, &mut "Green")));
-        let blue = iter.next().unwrap();
-        assert_eq!(blue, (&Color::Blue, &mut "Blue"));
-        assert_eq!(iter.next(), None);
-
-        // Modify the value through the mutable reference
-        *blue.1 = "Modified Blue";
-        assert_eq!(mutable_table[Color::Blue], "Modified Blue");
+    fn as_mut_impl() {
+        let mut table = TABLES;
+        let slice: &mut [&str] = table.as_mut();
+        slice[0] = "Changed";
+        assert_eq!(table.as_slice()[0], "Changed");
     }
 }

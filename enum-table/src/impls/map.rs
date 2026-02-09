@@ -3,9 +3,9 @@ use std::{
     hash::Hash,
 };
 
-use crate::{EnumTable, Enumable, et};
+use crate::{EnumTable, Enumable};
 
-impl<K: Enumable + Eq + Hash + core::fmt::Debug, V, const N: usize> EnumTable<K, V, N> {
+impl<K: Enumable + Eq + Hash, V, const N: usize> EnumTable<K, V, N> {
     /// Converts the `EnumTable` into a `HashMap`.
     ///
     /// This method consumes the `EnumTable` and creates a new `HashMap` with the same
@@ -37,7 +37,7 @@ impl<K: Enumable + Eq + Hash + core::fmt::Debug, V, const N: usize> EnumTable<K,
     /// assert_eq!(hash_map.len(), 3);
     /// ```
     pub fn into_hash_map(self) -> HashMap<K, V> {
-        self.table.into_iter().collect()
+        self.into_iter().collect()
     }
 
     /// Creates an `EnumTable` from a `HashMap`.
@@ -99,9 +99,10 @@ impl<K: Enumable + Eq + Hash + core::fmt::Debug, V, const N: usize> EnumTable<K,
             return None;
         }
 
-        Some(et!(K, V, { N }, |key| {
-            unsafe { map.remove(key).unwrap_unchecked() }
-        }))
+        let table =
+            crate::intrinsics::try_collect_array(|i| map.remove(&K::VARIANTS[i]).ok_or(()))
+                .ok()?;
+        Some(EnumTable::new(table))
     }
 }
 
@@ -137,7 +138,7 @@ impl<K: Enumable + Ord, V, const N: usize> EnumTable<K, V, N> {
     /// assert_eq!(btree_map.len(), 3);
     /// ```
     pub fn into_btree_map(self) -> BTreeMap<K, V> {
-        self.table.into_iter().collect()
+        self.into_iter().collect()
     }
 
     /// Creates an `EnumTable` from a `BTreeMap`.
@@ -199,9 +200,10 @@ impl<K: Enumable + Ord, V, const N: usize> EnumTable<K, V, N> {
             return None;
         }
 
-        Some(et!(K, V, { N }, |key| {
-            unsafe { map.remove(key).unwrap_unchecked() }
-        }))
+        let table =
+            crate::intrinsics::try_collect_array(|i| map.remove(&K::VARIANTS[i]).ok_or(()))
+                .ok()?;
+        Some(EnumTable::new(table))
     }
 }
 

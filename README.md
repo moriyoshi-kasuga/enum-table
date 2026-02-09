@@ -10,7 +10,7 @@
 
 **enum-table** is a lightweight and efficient Rust library for mapping enums to values.
 It provides a fast, type-safe, and allocation-free alternative to using `HashMap` for enum keys,
-with compile-time safety and logarithmic-time access.
+with compile-time safety and constant-time access (O(1)).
 
 See [CHANGELOG](./CHANGELOG.md) for version history and recent updates.
 
@@ -70,18 +70,39 @@ information about an enum—its variants and their count—to the `EnumTable`.
 pub trait Enumable: Copy + 'static {
     const VARIANTS: &'static [Self];
     const COUNT: usize = Self::VARIANTS.len();
+
+    /// Returns the index of this variant in the sorted `VARIANTS` array.
+    /// O(1) when derived, O(log N) fallback for manual implementations.
+    fn variant_index(&self) -> usize;
 }
 ```
 
 A critical requirement for this trait is that the `VARIANTS` array **must be sorted** by the enum's discriminant values.
-This ordering is essential for the table's binary search logic to function correctly.
+This ordering is essential for the table's internal logic to function correctly.
 
-Because manually ensuring this order is tedious and error-prone,
-**it is strongly recommended to use the derive macro `#[derive(Enumable)]`**.
-The derive macro automatically generates a correct, sorted `VARIANTS` array, guaranteeing proper behavior.
+**It is strongly recommended to use the derive macro `#[derive(Enumable)]`**.
+The derive macro automatically generates a correct, sorted `VARIANTS` array and an O(1) `variant_index()` implementation
+using compile-time-computed constants, guaranteeing both correctness and optimal performance.
 
-It is also recommended (though optional) to use a `#[repr(u*)]` attribute on your enum.
-This ensures the size and alignment of the enum's discriminant are stable and well-defined.
+### Safety and Memory Layout
+
+It is **strongly recommended** to use a primitive representation (e.g., `#[repr(u8)]`) on your enum.
+This ensures that the enum has a stable memory layout without undefined padding bytes.
+
+**Note on Padding:** If your enum contains padding bytes (for example, by using `#[repr(u8, align(2))]`),
+the library will likely trigger a **compile-time error** during constant evaluation.
+This is because Rust's constant evaluator prevents reading uninitialized memory (padding).
+
+```rust
+use enum_table::Enumable;
+
+#[derive(Enumable, Copy, Clone)]
+#[repr(u8)] // <--- Recommended!
+enum MyEnum {
+    A,
+    B,
+}
+```
 
 ## Usage Examples
 
@@ -119,8 +140,15 @@ You can create `EnumTable` instances at compile time with zero runtime overhead 
 This is ideal for static lookup tables.
 
 ```rust
-# use enum_table::{EnumTable, Enumable};
-# #[derive(Enumable, Copy, Clone)] #[repr(u8)] enum Test { A = 100, B = 1, C }
+use enum_table::{EnumTable, Enumable};
+#[derive(Enumable, Copy, Clone)]
+#[repr(u8)] 
+enum Test {
+    A = 100,
+    B = 1,
+    C
+}
+
 // This table is built at compile time and baked into the binary.
 static TABLE: EnumTable<Test, &'static str, { Test::COUNT }> =
   enum_table::et!(Test, &'static str, |t| match t {
@@ -130,7 +158,7 @@ static TABLE: EnumTable<Test, &'static str, { Test::COUNT }> =
   });
 
 // Accessing the value is highly efficient as the table is pre-built.
-const A_VAL: &str = TABLE.get(&Test::A);
+const A_VAL: &str = TABLE.get_const(&Test::A);
 assert_eq!(A_VAL, "A");
 ```
 
@@ -145,8 +173,6 @@ serde_json = "1.0"
 ```
 
 ```rust
-# #[cfg(feature = "serde")]
-# {
 use enum_table::{EnumTable, Enumable};
 use serde::{Serialize, Deserialize};
 
@@ -172,7 +198,6 @@ let deserialized: EnumTable<Status, &str, { Status::COUNT }> =
     serde_json::from_str(&json).unwrap();
 
 assert_eq!(table, deserialized);
-# }
 ```
 
 ### Error Handling and Alternative Constructors
@@ -220,9 +245,11 @@ which also handle potential errors like missing variants.
 - `EnumTable::new_with_fn()`: Create a table by mapping each enum variant to a value.
 - `EnumTable::try_new_with_fn()`: Create a table with error handling support.
 - `EnumTable::checked_new_with_fn()`: Create a table with optional values.
-- `EnumTable::get()`: Access the value for a specific enum variant.
-- `EnumTable::get_mut()`: Get mutable access to a value.
-- `EnumTable::set()`: Update a value and return the old one.
+- `EnumTable::get()`: Access the value for a specific enum variant (O(1)).
+- `EnumTable::get_mut()`: Get mutable access to a value (O(1)).
+- `EnumTable::set()`: Update a value and return the old one (O(1)).
+- `EnumTable::as_slice()`: Access the underlying values as a slice.
+- `EnumTable::into_array()`: Consume the table and get the underlying array.
 
 ### Transformation
 
@@ -230,12 +257,15 @@ which also handle potential errors like missing variants.
 - `map_mut()`: Transforms all values in the table in-place.
 - `map_with_key()`: Transforms values using both the key and value.
 - `map_mut_with_key()`: Transforms values in-place using both the key and value.
+- `zip()`: Combines two tables element-wise using a function.
 
 ### Iterators
 
 - `iter()`, `iter_mut()`: Iterate over key-value pairs.
 - `keys()`: Iterate over keys.
 - `values()`, `values_mut()`: Iterate over values.
+- `into_iter()`: Consume the table and iterate over owned key-value pairs.
+- Implements `Extend<(K, V)>` for updating values from an iterator.
 
 ### Conversions
 
@@ -250,11 +280,12 @@ The `EnumTable` can be converted to and from other standard collections.
   Requires the enum key to implement `Ord`.
 
 ```rust
-# use enum_table::{EnumTable, Enumable};
-# #[derive(Enumable, Debug, PartialEq, Eq, Hash, Copy, Clone)] enum Color { Red, Green, Blue }
-# let table = EnumTable::<Color, &'static str, 3>::new_with_fn(|c| match c {
-#     Color::Red => "red", Color::Green => "green", Color::Blue => "blue",
-# });
+use enum_table::{EnumTable, Enumable};
+#[derive(Enumable, Debug, PartialEq, Eq, Hash, Copy, Clone)] enum Color { Red, Green, Blue }
+let table = EnumTable::<Color, &'static str, 3>::new_with_fn(|c| match c {
+    Color::Red => "red", Color::Green => "green", Color::Blue => "blue",
+});
+
 // Example: Convert to a Vec
 let vec = table.into_vec();
 assert_eq!(vec.len(), 3);
@@ -271,9 +302,10 @@ assert!(vec.contains(&(Color::Red, "red")));
   Returns `None` if the map does not contain exactly one entry for each variant.
 
 ```rust
-# use enum_table::{EnumTable, Enumable};
-# use std::collections::HashMap;
-# #[derive(Enumable, Debug, PartialEq, Eq, Hash, Copy, Clone)] enum Color { Red, Green, Blue }
+use enum_table::{EnumTable, Enumable};
+use std::collections::HashMap;
+#[derive(Enumable, Debug, PartialEq, Eq, Hash, Copy, Clone)] enum Color { Red, Green, Blue }
+
 // Example: Create from a HashMap
 let mut map = HashMap::new();
 map.insert(Color::Red, 1);
@@ -290,7 +322,9 @@ For complete API documentation, visit [EnumTable on doc.rs](https://docs.rs/enum
 
 The `enum-table` library is designed for performance:
 
-- **Access Time**: O(log N) lookup time via binary search of enum discriminants.
+- **Access Time**: O(1) lookup time at runtime via the derived `variant_index()` method,
+  which uses compile-time-computed constants. The `const fn` variants (`get_const`, etc.)
+  use O(log N) binary search for `const` context compatibility.
 - **Memory Efficiency**: No heap allocations for the table structure, leading to better cache locality.
 - **Compile-Time Optimization**: Static tables can be fully constructed at compile time.
 
@@ -314,32 +348,31 @@ creating a table, getting values, and setting values.
 <summary>Benchmark results</summary>
 
 ```text
-EnumTable::new_with_fn  time:   [257.10 ps 258.88 ps 260.82 ps]
+EnumTable::new_with_fn  time:   [243.17 ps 245.10 ps 247.58 ps]
+Found 8 outliers among 100 measurements (8.00%)
+  3 (3.00%) high mild
+  5 (5.00%) high severe
+
+EnumTable::get          time:   [246.90 ps 250.65 ps 255.96 ps]
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+
+HashMap::get            time:   [12.582 ns 12.702 ns 12.877 ns]
 Found 9 outliers among 100 measurements (9.00%)
-  1 (1.00%) low mild
-  4 (4.00%) high mild
+  5 (5.00%) high mild
   4 (4.00%) high severe
 
-EnumTable::get          time:   [275.33 ps 293.95 ps 316.78 ps]
-Found 9 outliers among 100 measurements (9.00%)
-  3 (3.00%) high mild
-  6 (6.00%) high severe
-
-HashMap::get            time:   [13.368 ns 13.541 ns 13.765 ns]
-Found 11 outliers among 100 measurements (11.00%)
-  4 (4.00%) high mild
-  7 (7.00%) high severe
-
-EnumTable::set          time:   [260.57 ps 263.15 ps 267.08 ps]
-Found 5 outliers among 100 measurements (5.00%)
-  2 (2.00%) high mild
-  3 (3.00%) high severe
-
-HashMap::insert         time:   [15.664 ns 15.753 ns 15.844 ns]
+EnumTable::set          time:   [247.06 ps 248.96 ps 251.00 ps]
 Found 7 outliers among 100 measurements (7.00%)
-  2 (2.00%) low mild
-  3 (3.00%) high mild
+  5 (5.00%) high mild
   2 (2.00%) high severe
+
+HashMap::insert         time:   [15.126 ns 15.259 ns 15.443 ns]
+Found 11 outliers among 100 measurements (11.00%)
+  5 (5.00%) low mild
+  2 (2.00%) high mild
+  4 (4.00%) high severe
 ```
 
 </details>
