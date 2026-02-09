@@ -10,7 +10,7 @@
 
 **enum-table** is a lightweight and efficient Rust library for mapping enums to values.
 It provides a fast, type-safe, and allocation-free alternative to using `HashMap` for enum keys,
-with compile-time safety and logarithmic-time access.
+with compile-time safety and constant-time access (O(1)).
 
 See [CHANGELOG](./CHANGELOG.md) for version history and recent updates.
 
@@ -70,15 +70,19 @@ information about an enum—its variants and their count—to the `EnumTable`.
 pub trait Enumable: Copy + 'static {
     const VARIANTS: &'static [Self];
     const COUNT: usize = Self::VARIANTS.len();
+
+    /// Returns the index of this variant in the sorted `VARIANTS` array.
+    /// O(1) when derived, O(log N) fallback for manual implementations.
+    fn variant_index(&self) -> usize;
 }
 ```
 
 A critical requirement for this trait is that the `VARIANTS` array **must be sorted** by the enum's discriminant values.
-This ordering is essential for the table's binary search logic to function correctly.
+This ordering is essential for the table's internal logic to function correctly.
 
-Because manually ensuring this order is tedious and error-prone,
-**it is strongly recommended to use the derive macro `#[derive(Enumable)]`**.
-The derive macro automatically generates a correct, sorted `VARIANTS` array, guaranteeing proper behavior.
+**It is strongly recommended to use the derive macro `#[derive(Enumable)]`**.
+The derive macro automatically generates a correct, sorted `VARIANTS` array and an O(1) `variant_index()` implementation
+using compile-time-computed constants, guaranteeing both correctness and optimal performance.
 
 ### Safety and Memory Layout
 
@@ -241,9 +245,11 @@ which also handle potential errors like missing variants.
 - `EnumTable::new_with_fn()`: Create a table by mapping each enum variant to a value.
 - `EnumTable::try_new_with_fn()`: Create a table with error handling support.
 - `EnumTable::checked_new_with_fn()`: Create a table with optional values.
-- `EnumTable::get()`: Access the value for a specific enum variant.
-- `EnumTable::get_mut()`: Get mutable access to a value.
-- `EnumTable::set()`: Update a value and return the old one.
+- `EnumTable::get()`: Access the value for a specific enum variant (O(1)).
+- `EnumTable::get_mut()`: Get mutable access to a value (O(1)).
+- `EnumTable::set()`: Update a value and return the old one (O(1)).
+- `EnumTable::as_slice()`: Access the underlying values as a slice.
+- `EnumTable::into_array()`: Consume the table and get the underlying array.
 
 ### Transformation
 
@@ -251,12 +257,15 @@ which also handle potential errors like missing variants.
 - `map_mut()`: Transforms all values in the table in-place.
 - `map_with_key()`: Transforms values using both the key and value.
 - `map_mut_with_key()`: Transforms values in-place using both the key and value.
+- `zip()`: Combines two tables element-wise using a function.
 
 ### Iterators
 
 - `iter()`, `iter_mut()`: Iterate over key-value pairs.
 - `keys()`: Iterate over keys.
 - `values()`, `values_mut()`: Iterate over values.
+- `into_iter()`: Consume the table and iterate over owned key-value pairs.
+- Implements `Extend<(K, V)>` for updating values from an iterator.
 
 ### Conversions
 
@@ -313,7 +322,9 @@ For complete API documentation, visit [EnumTable on doc.rs](https://docs.rs/enum
 
 The `enum-table` library is designed for performance:
 
-- **Access Time**: O(log N) lookup time via binary search of enum discriminants.
+- **Access Time**: O(1) lookup time at runtime via the derived `variant_index()` method,
+  which uses compile-time-computed constants. The `const fn` variants (`get_const`, etc.)
+  use O(log N) binary search for `const` context compatibility.
 - **Memory Efficiency**: No heap allocations for the table structure, leading to better cache locality.
 - **Compile-Time Optimization**: Static tables can be fully constructed at compile time.
 
