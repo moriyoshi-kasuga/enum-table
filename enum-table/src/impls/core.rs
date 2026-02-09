@@ -72,6 +72,18 @@ impl<K: Enumable, V, const N: usize> IndexMut<&K> for EnumTable<K, V, N> {
     }
 }
 
+impl<K: Enumable, V, const N: usize> AsRef<[V]> for EnumTable<K, V, N> {
+    fn as_ref(&self) -> &[V] {
+        self.as_slice()
+    }
+}
+
+impl<K: Enumable, V, const N: usize> AsMut<[V]> for EnumTable<K, V, N> {
+    fn as_mut(&mut self) -> &mut [V] {
+        self.as_mut_slice()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use core::hash::{Hash, Hasher};
@@ -143,5 +155,19 @@ mod tests {
         let mut mutable_table = TABLES;
         mutable_table[Color::Red] = "Changed Red";
         assert_eq!(mutable_table[Color::Red], "Changed Red");
+    }
+
+    #[test]
+    fn as_ref_impl() {
+        let slice: &[&str] = TABLES.as_ref();
+        assert_eq!(slice.len(), 3);
+    }
+
+    #[test]
+    fn as_mut_impl() {
+        let mut table = TABLES;
+        let slice: &mut [&str] = table.as_mut();
+        slice[0] = "Changed";
+        assert_eq!(table.as_slice()[0], "Changed");
     }
 }

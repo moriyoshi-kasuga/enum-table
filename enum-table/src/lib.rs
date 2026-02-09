@@ -287,6 +287,75 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
         N == 0
     }
 
+    /// Returns a reference to the underlying array of values.
+    ///
+    /// Values are ordered by the sorted discriminant of the enum variants.
+    pub const fn as_slice(&self) -> &[V] {
+        &self.table
+    }
+
+    /// Returns a mutable reference to the underlying array of values.
+    ///
+    /// Values are ordered by the sorted discriminant of the enum variants.
+    pub const fn as_mut_slice(&mut self) -> &mut [V] {
+        &mut self.table
+    }
+
+    /// Consumes the table and returns the underlying array of values.
+    ///
+    /// Values are ordered by the sorted discriminant of the enum variants.
+    pub fn into_array(self) -> [V; N] {
+        self.table
+    }
+
+    /// Combines two `EnumTable`s into a new one by applying a function to each pair of values.
+    ///
+    /// # Arguments
+    ///
+    /// * `other` - Another `EnumTable` with the same key type.
+    /// * `f` - A closure that takes two values and returns a new value.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use enum_table::{EnumTable, Enumable};
+    ///
+    /// #[derive(Enumable, Copy, Clone)]
+    /// enum Stat {
+    ///     Hp,
+    ///     Attack,
+    ///     Defense,
+    /// }
+    ///
+    /// let base = EnumTable::<Stat, i32, { Stat::COUNT }>::new_with_fn(|s| match s {
+    ///     Stat::Hp => 100,
+    ///     Stat::Attack => 50,
+    ///     Stat::Defense => 30,
+    /// });
+    /// let bonus = EnumTable::<Stat, i32, { Stat::COUNT }>::new_with_fn(|s| match s {
+    ///     Stat::Hp => 20,
+    ///     Stat::Attack => 10,
+    ///     Stat::Defense => 5,
+    /// });
+    ///
+    /// let total = base.zip(bonus, |a, b| a + b);
+    /// assert_eq!(total.get(&Stat::Hp), &120);
+    /// assert_eq!(total.get(&Stat::Attack), &60);
+    /// assert_eq!(total.get(&Stat::Defense), &35);
+    /// ```
+    pub fn zip<U, W>(
+        self,
+        other: EnumTable<K, U, N>,
+        mut f: impl FnMut(V, U) -> W,
+    ) -> EnumTable<K, W, N> {
+        let mut other_iter = other.table.into_iter();
+        EnumTable::new(self.table.map(|v| {
+            // SAFETY: both arrays have exactly N elements, and map calls this exactly N times
+            let u = unsafe { other_iter.next().unwrap_unchecked() };
+            f(v, u)
+        }))
+    }
+
     /// Transforms all values in the table using the provided function.
     ///
     /// This method consumes the table and creates a new one with values
@@ -832,5 +901,48 @@ mod tests {
         let mut table = make_table();
         assert_eq!(table.remove_const(&Color::Red), Some(42));
         assert_eq!(table.get(&Color::Red), &None);
+    }
+
+    #[test]
+    fn as_slice() {
+        let slice = TABLES.as_slice();
+        assert_eq!(slice.len(), 3);
+        // Values are in sorted discriminant order: Green(11), Red(33), Blue(222)
+        assert_eq!(slice[0], "Green");
+        assert_eq!(slice[1], "Red");
+        assert_eq!(slice[2], "Blue");
+    }
+
+    #[test]
+    fn as_mut_slice() {
+        let mut table = TABLES;
+        let slice = table.as_mut_slice();
+        slice[0] = "Changed Green";
+        assert_eq!(table.get(&Color::Green), &"Changed Green");
+    }
+
+    #[test]
+    fn into_array() {
+        let arr = TABLES.into_array();
+        assert_eq!(arr, ["Green", "Red", "Blue"]);
+    }
+
+    #[test]
+    fn zip() {
+        let a = EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|c| match c {
+            Color::Red => -10,
+            Color::Green => -20,
+            Color::Blue => -30,
+        });
+        let b = EnumTable::<Color, u32, { Color::COUNT }>::new_with_fn(|c| match c {
+            Color::Red => 1,
+            Color::Green => 2,
+            Color::Blue => 3,
+        });
+
+        let sum = a.zip(b, |x, y| (x + y as i32) as i8);
+        assert_eq!(sum.get(&Color::Red), &-9);
+        assert_eq!(sum.get(&Color::Green), &-18);
+        assert_eq!(sum.get(&Color::Blue), &-27);
     }
 }

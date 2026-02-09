@@ -57,6 +57,22 @@ impl<'a, K: Enumable, V, const N: usize> IntoIterator for &'a EnumTable<K, V, N>
     }
 }
 
+impl<K: Enumable, V, const N: usize> Extend<(K, V)> for EnumTable<K, V, N> {
+    fn extend<I: IntoIterator<Item = (K, V)>>(&mut self, iter: I) {
+        for (k, v) in iter {
+            self.set(&k, v);
+        }
+    }
+}
+
+impl<'a, K: Enumable, V: Copy, const N: usize> Extend<(&'a K, &'a V)> for EnumTable<K, V, N> {
+    fn extend<I: IntoIterator<Item = (&'a K, &'a V)>>(&mut self, iter: I) {
+        for (k, v) in iter {
+            self.set(k, *v);
+        }
+    }
+}
+
 impl<'a, K: Enumable, V, const N: usize> IntoIterator for &'a mut EnumTable<K, V, N> {
     type Item = (&'a K, &'a mut V);
     type IntoIter = core::iter::Map<
@@ -121,5 +137,22 @@ mod tests {
         // Modify the value through the mutable reference
         *blue.1 = "Modified Blue";
         assert_eq!(mutable_table[Color::Blue], "Modified Blue");
+    }
+
+    #[test]
+    fn extend_owned() {
+        let mut table = TABLES;
+        table.extend([(Color::Red, "New Red"), (Color::Blue, "New Blue")]);
+        assert_eq!(table.get(&Color::Red), &"New Red");
+        assert_eq!(table.get(&Color::Green), &"Green");
+        assert_eq!(table.get(&Color::Blue), &"New Blue");
+    }
+
+    #[test]
+    fn extend_ref() {
+        let mut table = TABLES;
+        table.extend([(&Color::Red, &"New Red")]);
+        assert_eq!(table.get(&Color::Red), &"New Red");
+        assert_eq!(table.get(&Color::Green), &"Green");
     }
 }
