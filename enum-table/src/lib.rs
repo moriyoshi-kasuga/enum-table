@@ -1,4 +1,5 @@
 #![doc = include_str!(concat!("../", core::env!("CARGO_PKG_README")))]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(test)]
 pub extern crate self as enum_table;
