@@ -45,12 +45,8 @@ macro_rules! et {
             while i < builder.capacity() {
                 let $variable = &<$variant as $crate::Enumable>::VARIANTS[i];
                 let value = $($tt)*;
-                let t = $variable;
                 unsafe {
-                    builder.push_unchecked(
-                        t,
-                        value,
-                    );
+                    builder.push_unchecked($variable, value);
                 }
                 i += 1;
             }

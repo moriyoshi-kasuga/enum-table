@@ -12,7 +12,7 @@ pub mod builder;
 mod intrinsics;
 
 pub mod __private {
-    pub use crate::intrinsics::{binary_search_index, sort_variants, variant_index_of};
+    pub use crate::intrinsics::{sort_variants, variant_index_of};
 }
 
 mod impls;
@@ -44,14 +44,14 @@ pub trait Enumable: Copy + 'static {
     /// (using compile-time-computed constants). The default implementation
     /// falls back to O(log N) binary search for manual implementations.
     fn variant_index(&self) -> usize {
-        __private::binary_search_index::<Self>(self)
+        intrinsics::binary_search_index::<Self>(self)
     }
 }
 
 /// A table that associates each variant of an enumeration with a value.
 ///
 /// `EnumTable` is a generic struct that uses an enumeration as keys and stores
-/// associated values. It provides efficient logarithmic-time access (O(log N))
+/// associated values. It provides efficient constant-time access (O(1))
 /// to the values based on the enumeration variant. This is particularly useful
 /// when you want to map enum variants to specific values without the overhead
 /// of a `HashMap`.
@@ -113,6 +113,13 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// Creates a new `EnumTable` with the given table of variants and values.
     /// Typically, you would use the [`crate::et`] macro or [`crate::builder::EnumTableBuilder`] to create an `EnumTable`.
     pub(crate) const fn new(table: [V; N]) -> Self {
+        const {
+            assert!(
+                N == K::COUNT,
+                "EnumTable: N must equal K::COUNT. The const generic N does not match the number of enum variants."
+            );
+        }
+
         #[cfg(debug_assertions)]
         const {
             // Ensure that the variants are sorted by their discriminants.
@@ -130,16 +137,16 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
         }
     }
 
-    /// Create a new EnumTable with a function that takes a variant and returns a value.
-    /// If you want to define it in const, use [`crate::et`] macro
     /// Creates a new `EnumTable` using a function to generate values for each variant.
+    ///
+    /// If you want to define it in a `const` context, use the [`crate::et`] macro instead.
     ///
     /// # Arguments
     ///
     /// * `f` - A function that takes a reference to an enumeration variant and returns
     ///   a value to be associated with that variant.
     pub fn new_with_fn(mut f: impl FnMut(&K) -> V) -> Self {
-        et!(K, V, { N }, |variant| f(variant))
+        Self::new(core::array::from_fn(|i| f(&K::VARIANTS[i])))
     }
 
     /// Creates a new `EnumTable` using a function that returns a `Result` for each variant.
@@ -158,9 +165,11 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// * `Ok(Self)` if all variants succeed.
     /// * `Err((variant, e))` if any variant fails, containing the failing variant and the error.
     pub fn try_new_with_fn<E>(mut f: impl FnMut(&K) -> Result<V, E>) -> Result<Self, (K, E)> {
-        Ok(et!(K, V, { N }, |variant| {
-            f(variant).map_err(|e| (*variant, e))?
-        }))
+        let table = intrinsics::try_collect_array(|i| {
+            let variant = &K::VARIANTS[i];
+            f(variant).map_err(|e| (*variant, e))
+        })?;
+        Ok(Self::new(table))
     }
 
     /// Creates a new `EnumTable` using a function that returns an `Option` for each variant.
@@ -179,23 +188,11 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// * `Ok(Self)` if all variants succeed.
     /// * `Err(variant)` if any variant fails, containing the failing variant.
     pub fn checked_new_with_fn(mut f: impl FnMut(&K) -> Option<V>) -> Result<Self, K> {
-        Ok(et!(K, V, { N }, |variant| f(variant).ok_or(*variant)?))
-    }
-
-    pub(crate) const fn binary_search(&self, variant: &K) -> usize {
-        let mut low = 0;
-        let mut high = N;
-
-        while low < high {
-            let mid = low + (high - low) / 2;
-            if intrinsics::const_enum_lt(&K::VARIANTS[mid], variant) {
-                low = mid + 1;
-            } else {
-                high = mid;
-            }
-        }
-
-        low
+        let table = intrinsics::try_collect_array(|i| {
+            let variant = &K::VARIANTS[i];
+            f(variant).ok_or(*variant)
+        })?;
+        Ok(Self::new(table))
     }
 
     /// Returns a reference to the value associated with the given enumeration variant.
@@ -245,7 +242,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     ///
     /// * `variant` - A reference to an enumeration variant.
     pub const fn get_const(&self, variant: &K) -> &V {
-        let idx = self.binary_search(variant);
+        let idx = intrinsics::binary_search_index::<K>(variant);
         &self.table[idx]
     }
 
@@ -258,7 +255,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     ///
     /// * `variant` - A reference to an enumeration variant.
     pub const fn get_mut_const(&mut self, variant: &K) -> &mut V {
-        let idx = self.binary_search(variant);
+        let idx = intrinsics::binary_search_index::<K>(variant);
         &mut self.table[idx]
     }
 
@@ -276,18 +273,18 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     ///
     /// The old value associated with the variant.
     pub const fn set_const(&mut self, variant: &K, value: V) -> V {
-        let idx = self.binary_search(variant);
+        let idx = intrinsics::binary_search_index::<K>(variant);
         core::mem::replace(&mut self.table[idx], value)
     }
 
-    /// Returns the number of generic N
+    /// Returns the number of entries in the table (equal to the number of enum variants).
     pub const fn len(&self) -> usize {
         N
     }
 
-    /// Returns `false` since the table is never empty.
+    /// Returns `true` if the table has no entries (i.e., the enum has no variants).
     pub const fn is_empty(&self) -> bool {
-        false
+        N == 0
     }
 
     /// Transforms all values in the table using the provided function.
@@ -338,9 +335,9 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     pub fn map_with_key<U>(self, mut f: impl FnMut(&K, V) -> U) -> EnumTable<K, U, N> {
         let mut i = 0;
         EnumTable::new(self.table.map(|value| {
-            let j = i;
+            let key = &K::VARIANTS[i];
             i += 1;
-            f(&K::VARIANTS[j], value)
+            f(key, value)
         }))
     }
 
@@ -374,10 +371,8 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// assert_eq!(table.get(&Level::Medium), &25);
     /// assert_eq!(table.get(&Level::High), &35);
     /// ```
-    pub fn map_mut(&mut self, mut f: impl FnMut(&mut V)) {
-        self.table.iter_mut().for_each(|value| {
-            f(value);
-        });
+    pub fn map_mut(&mut self, f: impl FnMut(&mut V)) {
+        self.table.iter_mut().for_each(f);
     }
 
     /// Transforms all values in the table in-place using the provided function, with access to the key.
@@ -435,7 +430,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, Option<V>, N> {
     ///
     /// The previous value, or `None` if the slot was already empty.
     pub const fn remove_const(&mut self, variant: &K) -> Option<V> {
-        let idx = self.binary_search(variant);
+        let idx = intrinsics::binary_search_index::<K>(variant);
         self.table[idx].take()
     }
 }
@@ -479,7 +474,7 @@ impl<K: Enumable, V: Default, const N: usize> EnumTable<K, V, N> {
     /// This method initializes the table with the default value of type `V` for each
     /// variant of the enumeration.
     pub fn new_fill_with_default() -> Self {
-        et!(K, V, { N }, |variant| V::default())
+        Self::new(core::array::from_fn(|_| V::default()))
     }
 
     /// Clears the table, setting each value to its default.

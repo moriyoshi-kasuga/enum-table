@@ -1,3 +1,4 @@
+use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 
 use crate::{EnumTable, Enumable};
@@ -9,7 +10,8 @@ use crate::{EnumTable, Enumable};
 ///
 /// # Note
 /// The builder is expected to be filled completely before building the table.
-/// If the builder is not filled completely, the `build` and `build_to` method will panic.
+/// If the builder is not filled completely, the `build_unchecked` and `build_to_unchecked` methods
+/// will trigger a debug assertion failure.
 /// For a clearer and more concise approach, consider using the [`crate::et`] macro.
 ///
 /// # Example
@@ -43,6 +45,7 @@ pub struct EnumTableBuilder<K: Enumable, V, const N: usize> {
     table: MaybeUninit<[V; N]>,
     #[cfg(debug_assertions)]
     keys: MaybeUninit<[K; N]>,
+    _phantom: PhantomData<K>,
 }
 
 impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
@@ -57,6 +60,7 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
             table: MaybeUninit::uninit(),
             #[cfg(debug_assertions)]
             keys: MaybeUninit::uninit(),
+            _phantom: PhantomData,
         }
     }
 
@@ -73,7 +77,7 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
     ///
     /// * `variant` - A reference to an enumeration variant.
     /// * `value` - The value to associate with the variant.
-    pub const unsafe fn push_unchecked(&mut self, variant: &K, value: V) {
+    pub const unsafe fn push_unchecked(&mut self, _variant: &K, value: V) {
         debug_assert!(self.idx < N, "EnumTableBuilder: too many elements pushed");
 
         #[cfg(debug_assertions)]
@@ -82,7 +86,7 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
                 .as_mut_ptr()
                 .cast::<K>()
                 .add(self.idx)
-                .write(*variant);
+                .write(*_variant);
         }
 
         unsafe {
@@ -105,8 +109,7 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
     ///
     /// # Returns
     ///
-    /// An array of tuples where each tuple contains an enumeration
-    /// variant and its associated value.
+    /// An array of values corresponding to each enum variant.
     pub const unsafe fn build_unchecked(self) -> [V; N] {
         #[cfg(debug_assertions)]
         assert!(
@@ -119,20 +122,9 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
 
         #[cfg(debug_assertions)]
         {
-            const fn is_sorted<const N: usize, K>(arr: &[K; N]) -> bool {
-                let mut i = 0;
-                while i < N - 1 {
-                    if !crate::intrinsics::const_enum_lt(&arr[i], &arr[i + 1]) {
-                        return false;
-                    }
-                    i += 1;
-                }
-                true
-            }
-
             let keys = unsafe { self.keys.assume_init() };
             assert!(
-                is_sorted(&keys),
+                crate::intrinsics::is_sorted(&keys),
                 "EnumTableBuilder: elements are not sorted by discriminant. Ensure that the elements are pushed in the correct order."
             );
         }

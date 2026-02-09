@@ -30,15 +30,11 @@ impl<K: Enumable, V: PartialEq, const N: usize> PartialEq for EnumTable<K, V, N>
 
 impl<K: Enumable, V: Eq, const N: usize> Eq for EnumTable<K, V, N> {}
 
-impl<K: Enumable + core::hash::Hash, V: core::hash::Hash, const N: usize> core::hash::Hash
+impl<K: Enumable, V: core::hash::Hash, const N: usize> core::hash::Hash
     for EnumTable<K, V, N>
 {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-        state.write_usize(self.len());
-        for (discriminant, value) in self.iter() {
-            discriminant.hash(state);
-            value.hash(state);
-        }
+        self.table.hash(state);
     }
 }
 
@@ -59,6 +55,20 @@ impl<K: Enumable, V, const N: usize> Index<K> for EnumTable<K, V, N> {
 impl<K: Enumable, V, const N: usize> IndexMut<K> for EnumTable<K, V, N> {
     fn index_mut(&mut self, index: K) -> &mut Self::Output {
         self.get_mut(&index)
+    }
+}
+
+impl<K: Enumable, V, const N: usize> Index<&K> for EnumTable<K, V, N> {
+    type Output = V;
+
+    fn index(&self, index: &K) -> &Self::Output {
+        self.get(index)
+    }
+}
+
+impl<K: Enumable, V, const N: usize> IndexMut<&K> for EnumTable<K, V, N> {
+    fn index_mut(&mut self, index: &K) -> &mut Self::Output {
+        self.get_mut(index)
     }
 }
 

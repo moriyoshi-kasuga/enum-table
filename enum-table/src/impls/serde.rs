@@ -49,28 +49,33 @@ where
             where
                 A: MapAccess<'de>,
             {
-                use crate::EnumTableFromVecError;
-
-                let mut values: Vec<(K, V)> = Vec::with_capacity(N);
+                let mut slots: [Option<V>; N] = core::array::from_fn(|_| None);
+                let mut count = 0;
 
                 while let Some((key, value)) = map.next_entry::<K, V>()? {
-                    values.push((key, value));
+                    slots[key.variant_index()] = Some(value);
+                    count += 1;
                 }
 
-                match EnumTable::try_from_vec(values) {
-                    Ok(t) => Ok(t),
-                    Err(EnumTableFromVecError::InvalidSize { expected, found }) => {
-                        Err(serde::de::Error::invalid_length(
-                            found,
-                            &format!("expected {expected} entries, found {found}").as_str(),
-                        ))
-                    }
-                    Err(EnumTableFromVecError::MissingVariant(variant)) => {
-                        Err(serde::de::Error::invalid_value(
-                            serde::de::Unexpected::Str(&format!("{variant:?}")),
+                if count != N {
+                    return Err(serde::de::Error::invalid_length(
+                        count,
+                        &format!("expected {N} entries").as_str(),
+                    ));
+                }
+
+                let table = crate::intrinsics::try_collect_array(|i| {
+                    slots[i].take().ok_or_else(|| {
+                        serde::de::Error::invalid_value(
+                            serde::de::Unexpected::Str(&format!("{:?}", K::VARIANTS[i])),
                             &"all enum variants must be present",
-                        ))
-                    }
+                        )
+                    })
+                });
+
+                match table {
+                    Ok(arr) => Ok(EnumTable::new(arr)),
+                    Err(e) => Err(e),
                 }
             }
         }
