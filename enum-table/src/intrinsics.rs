@@ -37,7 +37,7 @@ pub const fn sort_variants<const N: usize, T>(mut arr: [T; N]) -> [T; N] {
     arr
 }
 
-#[cfg(debug_assertions)]
+#[cfg(any(debug_assertions, test))]
 pub(crate) const fn is_sorted<T>(arr: &[T]) -> bool {
     if arr.is_empty() {
         return true;
