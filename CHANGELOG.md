@@ -1,3 +1,33 @@
+## [enum-table-v3.0.0] - 2026-02-09
+
+### 🚀 Features
+
+- [**breaking**] Stop saving keys
+- Impl iter
+- [**breaking**] Access by O(1)
+- Update iter
+
+### 🚜 Refactor
+
+- Reorder target crates for correct build flow
+- Adjust code
+
+### 📚 Documentation
+
+- Update changelog
+- Explain padding to error
+- Update README.md
+- Update benchmark
+
+### 🧪 Testing
+
+- Fix compileable by release
+
+### ⚙️ Miscellaneous Tasks
+
+- Add .typos.toml
+- Adjust Cargo.toml
+- Release v3.0.0
 ## [enum-table-v2.1.2] - 2025-09-14
 
 ### 🚜 Refactor
