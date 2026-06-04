@@ -105,7 +105,6 @@ pub(crate) fn try_collect_array<V, E, const N: usize>(
     mut f: impl FnMut(usize) -> Result<V, E>,
 ) -> Result<[V; N], E> {
     let mut array = core::mem::MaybeUninit::<[V; N]>::uninit();
-    let mut initialized: usize = 0;
 
     for i in 0..N {
         match f(i) {
@@ -113,7 +112,7 @@ pub(crate) fn try_collect_array<V, E, const N: usize>(
                 array.as_mut_ptr().cast::<V>().add(i).write(v);
             },
             Err(e) => {
-                for i in 0..initialized {
+                for i in 0..i {
                     unsafe {
                         array.as_mut_ptr().cast::<V>().add(i).drop_in_place();
                     }
@@ -121,8 +120,6 @@ pub(crate) fn try_collect_array<V, E, const N: usize>(
                 return Err(e);
             }
         }
-
-        initialized += 1;
     }
 
     // SAFETY: all N elements have been initialized in the loop above.
