@@ -1,4 +1,7 @@
+extern crate alloc;
+
 use crate::{EnumTable, Enumable};
+use alloc::format;
 
 impl<K, V, const N: usize> serde::Serialize for EnumTable<K, V, N>
 where

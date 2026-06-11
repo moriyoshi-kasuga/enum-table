@@ -17,6 +17,7 @@ pub mod __private {
 }
 
 mod impls;
+#[allow(unused_imports)]
 pub use impls::*;
 
 mod macros;
