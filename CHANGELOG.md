@@ -1,3 +1,22 @@
+## [enum-table-v3.0.1] - 2026-06-11
+
+### 🐛 Bug Fixes
+
+- Resolve diagnostics
+- Any features diagnostics
+- Better validation
+
+### 💼 Other
+
+- Correct benchmark
+
+### 📚 Documentation
+
+- Update changelog
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v3.0.1
 ## [enum-table-v3.0.0] - 2026-02-09
 
 ### 🚀 Features
