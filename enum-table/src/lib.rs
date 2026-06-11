@@ -120,10 +120,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
                 N == K::COUNT,
                 "EnumTable: N must equal K::COUNT. The const generic N does not match the number of enum variants."
             );
-        }
 
-        #[cfg(debug_assertions)]
-        const {
             // Ensure that the variants are sorted by their discriminants.
             // This is a compile-time check to ensure that the variants are in the correct order.
             if !intrinsics::is_sorted(K::VARIANTS) {
