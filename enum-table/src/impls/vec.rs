@@ -1,4 +1,7 @@
+extern crate alloc;
+
 use crate::{EnumTable, Enumable};
+use alloc::vec::Vec;
 
 /// Error type for `EnumTable::try_from_vec`.
 #[derive(Debug, Clone, PartialEq, Eq)]

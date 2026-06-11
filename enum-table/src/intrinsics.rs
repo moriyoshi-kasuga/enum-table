@@ -37,7 +37,6 @@ pub const fn sort_variants<const N: usize, T>(mut arr: [T; N]) -> [T; N] {
     arr
 }
 
-#[cfg(any(debug_assertions, test))]
 pub(crate) const fn is_sorted<T>(arr: &[T]) -> bool {
     if arr.is_empty() {
         return true;
@@ -105,18 +104,13 @@ pub(crate) fn try_collect_array<V, E, const N: usize>(
     mut f: impl FnMut(usize) -> Result<V, E>,
 ) -> Result<[V; N], E> {
     let mut array = core::mem::MaybeUninit::<[V; N]>::uninit();
+    let ptr = array.as_mut_ptr().cast::<V>();
 
     for i in 0..N {
         match f(i) {
-            Ok(v) => unsafe {
-                array.as_mut_ptr().cast::<V>().add(i).write(v);
-            },
+            Ok(v) => unsafe { ptr.add(i).write(v) },
             Err(e) => {
-                for i in 0..i {
-                    unsafe {
-                        array.as_mut_ptr().cast::<V>().add(i).drop_in_place();
-                    }
-                }
+                (0..i).for_each(|j| unsafe { ptr.add(j).drop_in_place() });
                 return Err(e);
             }
         }

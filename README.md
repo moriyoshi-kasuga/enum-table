@@ -344,35 +344,38 @@ Invoke the benchmarks using `cargo bench` to compare the performance of `EnumTab
 with a `HashMap` for enum keys. The benchmarks measure the time taken for
 creating a table, getting values, and setting values.
 
+Inputs and outputs are wrapped in `std::hint::black_box` to prevent the compiler
+from constant-folding the lookups. The `get`/`set` benchmarks iterate over all 7
+variants per iteration, so the reported time covers 7 operations (divide by 7 for
+a rough per-operation cost).
+
 <details>
 <summary>Benchmark results</summary>
 
 ```text
-EnumTable::new_with_fn  time:   [243.17 ps 245.10 ps 247.58 ps]
-Found 8 outliers among 100 measurements (8.00%)
-  3 (3.00%) high mild
-  5 (5.00%) high severe
+EnumTable::new_with_fn  time:   [3.7279 ns 3.7305 ns 3.7334 ns]
+Found 10 outliers among 100 measurements (10.00%)
+  6 (6.00%) high mild
+  4 (4.00%) high severe
 
-EnumTable::get          time:   [246.90 ps 250.65 ps 255.96 ps]
-Found 3 outliers among 100 measurements (3.00%)
-  2 (2.00%) high mild
+EnumTable::get          time:   [1.9207 ns 1.9229 ns 1.9254 ns]
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) high mild
   1 (1.00%) high severe
 
-HashMap::get            time:   [12.582 ns 12.702 ns 12.877 ns]
-Found 9 outliers among 100 measurements (9.00%)
-  5 (5.00%) high mild
-  4 (4.00%) high severe
-
-EnumTable::set          time:   [247.06 ps 248.96 ps 251.00 ps]
+HashMap::get            time:   [44.039 ns 44.070 ns 44.110 ns]
 Found 7 outliers among 100 measurements (7.00%)
-  5 (5.00%) high mild
-  2 (2.00%) high severe
+  4 (4.00%) high mild
+  3 (3.00%) high severe
 
-HashMap::insert         time:   [15.126 ns 15.259 ns 15.443 ns]
-Found 11 outliers among 100 measurements (11.00%)
-  5 (5.00%) low mild
-  2 (2.00%) high mild
+EnumTable::set          time:   [21.530 ns 21.541 ns 21.554 ns]
+Found 8 outliers among 100 measurements (8.00%)
+  4 (4.00%) high mild
   4 (4.00%) high severe
+
+HashMap::insert         time:   [53.874 ns 53.926 ns 53.983 ns]
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
 ```
 
 </details>

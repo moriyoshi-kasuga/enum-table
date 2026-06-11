@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash};
+use std::{collections::HashMap, hash::Hash, hint::black_box};
 
 use criterion::{Criterion, criterion_group, criterion_main};
 use enum_table::{EnumTable, Enumable};
@@ -40,9 +40,7 @@ fn new_hash_map() -> HashMap<Letter, &'static str> {
 
 fn enum_table_new_with_fn(criterion: &mut Criterion) {
     criterion.bench_function("EnumTable::new_with_fn", |bencher| {
-        bencher.iter(|| {
-            new();
-        })
+        bencher.iter(|| black_box(new()))
     });
 }
 
@@ -50,7 +48,9 @@ fn enum_table_get(criterion: &mut Criterion) {
     let table = new();
     criterion.bench_function("EnumTable::get", |bencher| {
         bencher.iter(|| {
-            let _ = table.get(&Letter::A);
+            for letter in Letter::VARIANTS {
+                black_box(black_box(&table).get(black_box(letter)));
+            }
         })
     });
 }
@@ -60,7 +60,9 @@ fn hash_map_get(criterion: &mut Criterion) {
 
     criterion.bench_function("HashMap::get", |bencher| {
         bencher.iter(|| {
-            let _ = map.get(&Letter::A);
+            for letter in Letter::VARIANTS {
+                black_box(black_box(&map).get(black_box(letter)));
+            }
         })
     });
 }
@@ -69,7 +71,9 @@ fn enum_table_set(criterion: &mut Criterion) {
     let mut table = new();
     criterion.bench_function("EnumTable::set", |bencher| {
         bencher.iter(|| {
-            table.set(&Letter::A, "Alpha Updated");
+            for letter in Letter::VARIANTS {
+                black_box(table.set(black_box(letter), black_box("Updated")));
+            }
         })
     });
 }
@@ -78,7 +82,9 @@ fn hash_map_set(criterion: &mut Criterion) {
     let mut map = new_hash_map();
     criterion.bench_function("HashMap::insert", |bencher| {
         bencher.iter(|| {
-            map.insert(Letter::A, "Alpha Updated");
+            for letter in Letter::VARIANTS {
+                black_box(map.insert(black_box(*letter), black_box("Updated")));
+            }
         })
     });
 }
