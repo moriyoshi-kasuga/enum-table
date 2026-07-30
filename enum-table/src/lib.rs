@@ -1,6 +1,9 @@
 #![doc = include_str!(concat!("../", core::env!("CARGO_PKG_README")))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
 #[cfg(test)]
 pub extern crate self as enum_table;
 
@@ -12,39 +15,78 @@ pub use enum_table_derive::Enumable;
 pub mod builder;
 mod intrinsics;
 
+#[doc(hidden)]
 pub mod __private {
     pub use crate::intrinsics::{sort_variants, variant_index_of};
 }
 
 mod impls;
-#[allow(unused_imports)]
+#[cfg(feature = "alloc")]
 pub use impls::*;
 
 mod macros;
 
 /// A trait for enumerations that can be used with `EnumTable`.
 ///
-/// This trait requires that the enumeration provides a static array of its variants
-/// and a constant representing the count of these variants.
+/// This trait requires that the enumeration provides a static array of its
+/// variants, sorted by the unsigned bit-pattern of their in-memory
+/// representation.
+///
+/// **It is strongly recommended to use `#[derive(Enumable)]`**, which upholds
+/// the safety contract below automatically.
 ///
 /// # Safety
 ///
-/// The implementations of this trait rely on the memory layout of the enum.
-/// It is strongly recommended to use a primitive representation (e.g., `#[repr(u8)]`)
-/// to ensure that the enum has no padding bytes and a stable layout.
+/// Implementors must guarantee:
 ///
-/// **Note on Padding:** If the enum contains padding bytes (e.g., `#[repr(u8, align(2))]`),
-/// it will cause a **compile-time error** during constant evaluation, as Rust's
-/// constant evaluator does not allow reading uninitialized memory (padding).
-pub trait Enumable: Copy + 'static {
+/// - `Self` has no padding bytes in its representation. Using a primitive
+///   representation (e.g. `#[repr(u8)]`) on a field-less enum guarantees this;
+///   note that a field-less enum never has padding regardless of `#[repr]`,
+///   since there is no payload to pad between.
+/// - `VARIANTS` contains every variant of `Self` exactly once, sorted in
+///   ascending order by the unsigned bit-pattern of its in-memory
+///   representation. For example, with `#[repr(i8)]`, `-1` sorts *after* `0`
+///   and `1`, since its bit pattern (`0xFF`) is numerically larger than
+///   theirs.
+///
+/// Violating either guarantee is undefined behavior: [`EnumTable`] relies on
+/// them to index into its backing array without re-validating each access.
+///
+/// # Examples
+///
+/// Manually implementing `Enumable` (prefer `#[derive(Enumable)]` when possible):
+///
+/// ```rust
+/// use enum_table::Enumable;
+///
+/// #[derive(Copy, Clone)]
+/// #[repr(u8)]
+/// enum Test {
+///     A,
+///     B,
+///     C,
+/// }
+///
+/// // SAFETY: `Test` is a field-less `#[repr(u8)]` enum (no padding bytes),
+/// // and `VARIANTS` lists every variant exactly once, sorted by discriminant.
+/// unsafe impl Enumable for Test {
+///     const VARIANTS: &'static [Self] = &[Test::A, Test::B, Test::C];
+/// }
+///
+/// assert_eq!(Test::B.variant_index(), 1);
+/// ```
+pub unsafe trait Enumable: Copy + 'static {
     const VARIANTS: &'static [Self];
-    const COUNT: usize = Self::VARIANTS.len();
 
     /// Returns the index of this variant in the sorted `VARIANTS` array.
     ///
-    /// When derived via `#[derive(Enumable)]`, this is O(1) at runtime
-    /// (using compile-time-computed constants). The default implementation
-    /// falls back to O(log N) binary search for manual implementations.
+    /// When derived via `#[derive(Enumable)]`, each arm returns a
+    /// compile-time-computed constant, so this compiles to a single memory
+    /// read (O(1)) for enums with dense, sequential discriminants, and to a
+    /// compiler-generated comparison tree (comparable to O(log N)) for
+    /// sparse or custom discriminants — in both cases faster than the
+    /// manual fallback, which always performs an O(log N) binary search
+    /// over the `VARIANTS` array at runtime.
     fn variant_index(&self) -> usize {
         intrinsics::binary_search_index::<Self>(self)
     }
@@ -95,7 +137,7 @@ pub trait Enumable: Copy + 'static {
 /// }
 ///
 /// // Create an EnumTable using the new_with_fn method
-/// let table = EnumTable::<Color, &'static str, { Color::COUNT }>::new_with_fn(|color| match color {
+/// let table = EnumTable::<Color, &'static str, { Color::VARIANTS.len() }>::new_with_fn(|color| match color {
 ///     Color::Red => "Red",
 ///     Color::Green => "Green",
 ///     Color::Blue => "Blue",
@@ -117,17 +159,9 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     pub(crate) const fn new(table: [V; N]) -> Self {
         const {
             assert!(
-                N == K::COUNT,
-                "EnumTable: N must equal K::COUNT. The const generic N does not match the number of enum variants."
+                N == K::VARIANTS.len(),
+                "EnumTable: N must equal K::VARIANTS.len(). The const generic N does not match the number of enum variants."
             );
-
-            // Ensure that the variants are sorted by their discriminants.
-            // This is a compile-time check to ensure that the variants are in the correct order.
-            if !intrinsics::is_sorted(K::VARIANTS) {
-                panic!(
-                    "Enumable: variants are not sorted by discriminant. Use `enum_table::Enumable` derive macro to ensure correct ordering."
-                );
-            }
         }
 
         Self {
@@ -326,12 +360,12 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     ///     Defense,
     /// }
     ///
-    /// let base = EnumTable::<Stat, i32, { Stat::COUNT }>::new_with_fn(|s| match s {
+    /// let base = EnumTable::<Stat, i32, { Stat::VARIANTS.len() }>::new_with_fn(|s| match s {
     ///     Stat::Hp => 100,
     ///     Stat::Attack => 50,
     ///     Stat::Defense => 30,
     /// });
-    /// let bonus = EnumTable::<Stat, i32, { Stat::COUNT }>::new_with_fn(|s| match s {
+    /// let bonus = EnumTable::<Stat, i32, { Stat::VARIANTS.len() }>::new_with_fn(|s| match s {
     ///     Stat::Hp => 20,
     ///     Stat::Attack => 10,
     ///     Stat::Defense => 5,
@@ -376,7 +410,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     ///     Large,
     /// }
     ///
-    /// let table = EnumTable::<Size, i32, { Size::COUNT }>::new_with_fn(|size| match size {
+    /// let table = EnumTable::<Size, i32, { Size::VARIANTS.len() }>::new_with_fn(|size| match size {
     ///     Size::Small => 1,
     ///     Size::Medium => 2,
     ///     Size::Large => 3,
@@ -427,7 +461,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     ///     High,
     /// }
     ///
-    /// let mut table = EnumTable::<Level, i32, { Level::COUNT }>::new_with_fn(|level| match level {
+    /// let mut table = EnumTable::<Level, i32, { Level::VARIANTS.len() }>::new_with_fn(|level| match level {
     ///     Level::Low => 10,
     ///     Level::Medium => 20,
     ///     Level::High => 30,
@@ -525,7 +559,7 @@ impl<K: Enumable, V: Copy, const N: usize> EnumTable<K, V, N> {
     ///     Pending,
     /// }
     ///
-    /// let table = EnumTable::<Status, i32, { Status::COUNT }>::new_fill_with_copy(42);
+    /// let table = EnumTable::<Status, i32, { Status::VARIANTS.len() }>::new_fill_with_copy(42);
     ///
     /// assert_eq!(table.get(&Status::Active), &42);
     /// assert_eq!(table.get(&Status::Inactive), &42);
@@ -562,7 +596,7 @@ mod tests {
         Blue = 222,
     }
 
-    const TABLES: EnumTable<Color, &'static str, { Color::COUNT }> =
+    const TABLES: EnumTable<Color, &'static str, { Color::VARIANTS.len() }> =
         crate::et!(Color, &'static str, |color| match color {
             Color::Red => "Red",
             Color::Green => "Green",
@@ -572,10 +606,12 @@ mod tests {
     #[test]
     fn new_with_fn() {
         let table =
-            EnumTable::<Color, &'static str, { Color::COUNT }>::new_with_fn(|color| match color {
-                Color::Red => "Red",
-                Color::Green => "Green",
-                Color::Blue => "Blue",
+            EnumTable::<Color, &'static str, { Color::VARIANTS.len() }>::new_with_fn(|color| {
+                match color {
+                    Color::Red => "Red",
+                    Color::Green => "Green",
+                    Color::Blue => "Blue",
+                }
             });
 
         assert_eq!(table.get(&Color::Red), &"Red");
@@ -586,44 +622,11 @@ mod tests {
     #[test]
     fn try_new_with_fn() {
         let table =
-            EnumTable::<Color, &'static str, { Color::COUNT }>::try_new_with_fn(
-                |color| match color {
+            EnumTable::<Color, &'static str, { Color::VARIANTS.len() }>::try_new_with_fn(|color| {
+                match color {
                     Color::Red => Ok::<&'static str, core::convert::Infallible>("Red"),
                     Color::Green => Ok("Green"),
                     Color::Blue => Ok("Blue"),
-                },
-            );
-
-        assert!(table.is_ok());
-        let table = table.unwrap();
-
-        assert_eq!(table.get(&Color::Red), &"Red");
-        assert_eq!(table.get(&Color::Green), &"Green");
-        assert_eq!(table.get(&Color::Blue), &"Blue");
-
-        let error_table = EnumTable::<Color, &'static str, { Color::COUNT }>::try_new_with_fn(
-            |color| match color {
-                Color::Red => Ok("Red"),
-                Color::Green => Err("Error on Green"),
-                Color::Blue => Ok("Blue"),
-            },
-        );
-
-        assert!(error_table.is_err());
-        let (variant, error) = error_table.unwrap_err();
-
-        assert_eq!(variant, Color::Green);
-        assert_eq!(error, "Error on Green");
-    }
-
-    #[test]
-    fn checked_new_with_fn() {
-        let table =
-            EnumTable::<Color, &'static str, { Color::COUNT }>::checked_new_with_fn(|color| {
-                match color {
-                    Color::Red => Some("Red"),
-                    Color::Green => Some("Green"),
-                    Color::Blue => Some("Blue"),
                 }
             });
 
@@ -635,13 +638,47 @@ mod tests {
         assert_eq!(table.get(&Color::Blue), &"Blue");
 
         let error_table =
-            EnumTable::<Color, &'static str, { Color::COUNT }>::checked_new_with_fn(|color| {
+            EnumTable::<Color, &'static str, { Color::VARIANTS.len() }>::try_new_with_fn(|color| {
                 match color {
+                    Color::Red => Ok("Red"),
+                    Color::Green => Err("Error on Green"),
+                    Color::Blue => Ok("Blue"),
+                }
+            });
+
+        assert!(error_table.is_err());
+        let (variant, error) = error_table.unwrap_err();
+
+        assert_eq!(variant, Color::Green);
+        assert_eq!(error, "Error on Green");
+    }
+
+    #[test]
+    fn checked_new_with_fn() {
+        let table =
+            EnumTable::<Color, &'static str, { Color::VARIANTS.len() }>::checked_new_with_fn(
+                |color| match color {
+                    Color::Red => Some("Red"),
+                    Color::Green => Some("Green"),
+                    Color::Blue => Some("Blue"),
+                },
+            );
+
+        assert!(table.is_ok());
+        let table = table.unwrap();
+
+        assert_eq!(table.get(&Color::Red), &"Red");
+        assert_eq!(table.get(&Color::Green), &"Green");
+        assert_eq!(table.get(&Color::Blue), &"Blue");
+
+        let error_table =
+            EnumTable::<Color, &'static str, { Color::VARIANTS.len() }>::checked_new_with_fn(
+                |color| match color {
                     Color::Red => Some("Red"),
                     Color::Green => None,
                     Color::Blue => Some("Blue"),
-                }
-            });
+                },
+            );
 
         assert!(error_table.is_err());
         let variant = error_table.unwrap_err();
@@ -732,11 +769,12 @@ mod tests {
 
     #[test]
     fn map() {
-        let table = EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
-            Color::Red => 1,
-            Color::Green => 2,
-            Color::Blue => 3,
-        });
+        let table =
+            EnumTable::<Color, i32, { Color::VARIANTS.len() }>::new_with_fn(|color| match color {
+                Color::Red => 1,
+                Color::Green => 2,
+                Color::Blue => 3,
+            });
 
         let doubled = table.map(|value| value * 2);
 
@@ -747,11 +785,12 @@ mod tests {
 
     #[test]
     fn map_with_key() {
-        let table = EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
-            Color::Red => 1,
-            Color::Green => 2,
-            Color::Blue => 3,
-        });
+        let table =
+            EnumTable::<Color, i32, { Color::VARIANTS.len() }>::new_with_fn(|color| match color {
+                Color::Red => 1,
+                Color::Green => 2,
+                Color::Blue => 3,
+            });
 
         let mapped = table.map_with_key(|key, value| match key {
             Color::Red => value + 10,   // 1 + 10 = 11
@@ -768,7 +807,7 @@ mod tests {
     #[test]
     fn map_mut() {
         let mut table =
-            EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
+            EnumTable::<Color, i32, { Color::VARIANTS.len() }>::new_with_fn(|color| match color {
                 Color::Red => 10,
                 Color::Green => 20,
                 Color::Blue => 30,
@@ -784,7 +823,7 @@ mod tests {
     #[test]
     fn map_mut_with_key() {
         let mut table =
-            EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
+            EnumTable::<Color, i32, { Color::VARIANTS.len() }>::new_with_fn(|color| match color {
                 Color::Red => 10,
                 Color::Green => 20,
                 Color::Blue => 30,
@@ -811,7 +850,7 @@ mod tests {
                 $($variant,)*
             }
 
-            let map = EnumTable::<Test, &'static str, { Test::COUNT }>::new_with_fn(|t| match t {
+            let map = EnumTable::<Test, &'static str, { Test::VARIANTS.len() }>::new_with_fn(|t| match t {
                 $(Test::$variant => stringify!($variant),)*
             });
             $(
@@ -838,6 +877,35 @@ mod tests {
         assert_eq!(Color::Blue.variant_index(), 2);
     }
 
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Enumable)]
+    #[repr(i8)]
+    enum Signed {
+        Neg = -1,
+        Zero = 0,
+        Pos = 1,
+    }
+
+    #[test]
+    fn signed_repr_end_to_end() {
+        // Unsigned bit-pattern order: Zero(0x00), Pos(0x01), Neg(0xFF)
+        assert_eq!(Signed::VARIANTS, &[Signed::Zero, Signed::Pos, Signed::Neg]);
+        assert_eq!(Signed::Zero.variant_index(), 0);
+        assert_eq!(Signed::Pos.variant_index(), 1);
+        assert_eq!(Signed::Neg.variant_index(), 2);
+
+        let table = EnumTable::<Signed, &'static str, { Signed::VARIANTS.len() }>::new_with_fn(
+            |s| match s {
+                Signed::Neg => "neg",
+                Signed::Zero => "zero",
+                Signed::Pos => "pos",
+            },
+        );
+
+        assert_eq!(table.get(&Signed::Neg), &"neg");
+        assert_eq!(table.get(&Signed::Zero), &"zero");
+        assert_eq!(table.get(&Signed::Pos), &"pos");
+    }
+
     #[test]
     fn get_const() {
         const RED: &str = TABLES.get_const(&Color::Red);
@@ -851,34 +919,36 @@ mod tests {
 
     #[test]
     fn set_const() {
-        const fn make_table() -> EnumTable<Color, &'static str, { Color::COUNT }> {
+        const fn make_table() -> EnumTable<Color, &'static str, { Color::VARIANTS.len() }> {
             let mut table = TABLES;
             table.set_const(&Color::Red, "New Red");
             table
         }
-        const TABLE: EnumTable<Color, &'static str, { Color::COUNT }> = make_table();
+        const TABLE: EnumTable<Color, &'static str, { Color::VARIANTS.len() }> = make_table();
         assert_eq!(TABLE.get_const(&Color::Red), &"New Red");
         assert_eq!(TABLE.get_const(&Color::Green), &"Green");
     }
 
     #[test]
     fn get_mut_const() {
-        const fn make_table() -> EnumTable<Color, &'static str, { Color::COUNT }> {
+        const fn make_table() -> EnumTable<Color, &'static str, { Color::VARIANTS.len() }> {
             let mut table = TABLES;
             *table.get_mut_const(&Color::Green) = "Changed Green";
             table
         }
-        const TABLE: EnumTable<Color, &'static str, { Color::COUNT }> = make_table();
+        const TABLE: EnumTable<Color, &'static str, { Color::VARIANTS.len() }> = make_table();
         assert_eq!(TABLE.get_const(&Color::Green), &"Changed Green");
     }
 
     #[test]
     fn remove_option() {
         let mut table =
-            EnumTable::<Color, Option<i32>, { Color::COUNT }>::new_with_fn(|color| match color {
-                Color::Red => Some(1),
-                Color::Green => Some(2),
-                Color::Blue => None,
+            EnumTable::<Color, Option<i32>, { Color::VARIANTS.len() }>::new_with_fn(|color| {
+                match color {
+                    Color::Red => Some(1),
+                    Color::Green => Some(2),
+                    Color::Blue => None,
+                }
             });
 
         assert_eq!(table.remove(&Color::Red), Some(1));
@@ -890,7 +960,7 @@ mod tests {
 
     #[test]
     fn remove_const_option() {
-        const fn make_table() -> EnumTable<Color, Option<i32>, { Color::COUNT }> {
+        const fn make_table() -> EnumTable<Color, Option<i32>, { Color::VARIANTS.len() }> {
             let mut table = EnumTable::new_fill_with_none();
             table.set_const(&Color::Red, Some(42));
             table.set_const(&Color::Green, Some(99));
@@ -928,12 +998,12 @@ mod tests {
 
     #[test]
     fn zip() {
-        let a = EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|c| match c {
+        let a = EnumTable::<Color, i32, { Color::VARIANTS.len() }>::new_with_fn(|c| match c {
             Color::Red => -10,
             Color::Green => -20,
             Color::Blue => -30,
         });
-        let b = EnumTable::<Color, u32, { Color::COUNT }>::new_with_fn(|c| match c {
+        let b = EnumTable::<Color, u32, { Color::VARIANTS.len() }>::new_with_fn(|c| match c {
             Color::Red => 1,
             Color::Green => 2,
             Color::Blue => 3,

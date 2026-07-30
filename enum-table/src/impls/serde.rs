@@ -100,7 +100,7 @@ mod tests {
         Blue,
     }
 
-    const TABLES: EnumTable<Color, &'static str, { Color::COUNT }> =
+    const TABLES: EnumTable<Color, &'static str, { Color::VARIANTS.len() }> =
         crate::et!(Color, &'static str, |color| match color {
             Color::Red => "Red",
             Color::Green => "Green",
@@ -118,7 +118,8 @@ mod tests {
     #[test]
     fn serde_deserialize() {
         let json = r#"{"Red":"Red","Green":"Green","Blue":"Blue"}"#;
-        let table: EnumTable<Color, &str, { Color::COUNT }> = serde_json::from_str(json).unwrap();
+        let table: EnumTable<Color, &str, { Color::VARIANTS.len() }> =
+            serde_json::from_str(json).unwrap();
 
         assert_eq!(table.get(&Color::Red), &"Red");
         assert_eq!(table.get(&Color::Green), &"Green");
@@ -129,7 +130,7 @@ mod tests {
     fn serde_roundtrip() {
         let original = TABLES;
         let json = serde_json::to_string(&original).unwrap();
-        let deserialized: EnumTable<Color, &str, { Color::COUNT }> =
+        let deserialized: EnumTable<Color, &str, { Color::VARIANTS.len() }> =
             serde_json::from_str(&json).unwrap();
 
         assert_eq!(original, deserialized);
@@ -139,7 +140,7 @@ mod tests {
     fn serde_missing_variant_error() {
         // Missing Blue variant
         let json = r#"{"Red":"Red","Green":"Green"}"#;
-        let result: Result<EnumTable<Color, &str, { Color::COUNT }>, _> =
+        let result: Result<EnumTable<Color, &str, { Color::VARIANTS.len() }>, _> =
             serde_json::from_str(json);
 
         assert!(result.is_err());

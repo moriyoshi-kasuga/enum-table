@@ -5,11 +5,12 @@ use alloc::vec::Vec;
 
 /// Error type for `EnumTable::try_from_vec`.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum EnumTableFromVecError<K> {
     /// The vector has an invalid size.
     InvalidSize { expected: usize, found: usize },
-    /// A required enum variant is missing from the vector.
-    /// This error happened meaning that the vector duplicated some variant
+    /// A required enum variant was missing from the vector, which implies
+    /// another variant was duplicated (the length check already passed).
     MissingVariant(K),
 }
 
@@ -43,7 +44,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     ///     Blue,
     /// }
     ///
-    /// let table = EnumTable::<Color, &str, { Color::COUNT }>::new_with_fn(|color| match color {
+    /// let table = EnumTable::<Color, &str, { Color::VARIANTS.len() }>::new_with_fn(|color| match color {
     ///     Color::Red => "red",
     ///     Color::Green => "green",
     ///     Color::Blue => "blue",
@@ -85,7 +86,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     ///     (Color::Blue, "blue"),
     /// ];
     ///
-    /// let table = EnumTable::<Color, &str, { Color::COUNT }>::try_from_vec(vec).unwrap();
+    /// let table = EnumTable::<Color, &str, { Color::VARIANTS.len() }>::try_from_vec(vec).unwrap();
     /// assert_eq!(table.get(&Color::Red), &"red");
     /// assert_eq!(table.get(&Color::Green), &"green");
     /// assert_eq!(table.get(&Color::Blue), &"blue");
@@ -125,7 +126,7 @@ mod tests {
         Blue = 222,
     }
 
-    const TABLES: EnumTable<Color, &'static str, { Color::COUNT }> =
+    const TABLES: EnumTable<Color, &'static str, { Color::VARIANTS.len() }> =
         crate::et!(Color, &'static str, |color| match color {
             Color::Red => "Red",
             Color::Green => "Green",
@@ -151,7 +152,7 @@ mod tests {
             (Color::Blue, "Blue"),
         ];
 
-        let table = EnumTable::<Color, &str, { Color::COUNT }>::try_from_vec(vec).unwrap();
+        let table = EnumTable::<Color, &str, { Color::VARIANTS.len() }>::try_from_vec(vec).unwrap();
         assert_eq!(table.get(&Color::Red), &"Red");
         assert_eq!(table.get(&Color::Green), &"Green");
         assert_eq!(table.get(&Color::Blue), &"Blue");
@@ -165,7 +166,7 @@ mod tests {
             // Missing Blue
         ];
 
-        let result = EnumTable::<Color, &str, { Color::COUNT }>::try_from_vec(vec);
+        let result = EnumTable::<Color, &str, { Color::VARIANTS.len() }>::try_from_vec(vec);
         assert_eq!(
             result,
             Err(crate::EnumTableFromVecError::InvalidSize {
@@ -183,7 +184,7 @@ mod tests {
             (Color::Red, "Duplicate Red"), // Duplicate instead of Blue
         ];
 
-        let result = EnumTable::<Color, &str, { Color::COUNT }>::try_from_vec(vec);
+        let result = EnumTable::<Color, &str, { Color::VARIANTS.len() }>::try_from_vec(vec);
         assert_eq!(
             result,
             Err(crate::EnumTableFromVecError::MissingVariant(Color::Blue))
@@ -194,7 +195,8 @@ mod tests {
     fn conversion_roundtrip() {
         let original = TABLES;
         let vec = original.into_vec();
-        let reconstructed = EnumTable::<Color, &str, { Color::COUNT }>::try_from_vec(vec).unwrap();
+        let reconstructed =
+            EnumTable::<Color, &str, { Color::VARIANTS.len() }>::try_from_vec(vec).unwrap();
 
         assert_eq!(reconstructed.get(&Color::Red), &"Red");
         assert_eq!(reconstructed.get(&Color::Green), &"Green");

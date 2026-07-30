@@ -1,34 +1,70 @@
-macro_rules! const_operator {
-    ($T:ident,$left:ident ($operator:tt) $right:ident) => {
-        match const { core::mem::size_of::<$T>() } {
-            1 => unsafe { *($left as *const $T as *const u8) $operator *($right as *const $T as *const u8) },
-            2 => unsafe { *($left as *const $T as *const u16) $operator *($right as *const $T as *const u16) },
-            4 => unsafe { *($left as *const $T as *const u32) $operator *($right as *const $T as *const u32) },
-            8 => unsafe { *($left as *const $T as *const u64) $operator *($right as *const $T as *const u64) },
-            16 => unsafe { *($left as *const $T as *const u128) $operator *($right as *const $T as *const u128) },
+use crate::Enumable;
 
-            _ => panic!(
-                "enum-table: Enum discriminants larger than 128 bits are not supported. This is likely due to an extremely large enum or invalid memory layout."
-            ),
+/// Compares the raw bytes of `left` and `right` for equality.
+///
+/// # Safety
+///
+/// `T` must have no padding bytes, otherwise this reads uninitialized memory.
+#[inline(always)]
+const unsafe fn bytes_eq<T>(left: &T, right: &T) -> bool {
+    let left = left as *const T as *const u8;
+    let right = right as *const T as *const u8;
+    let len = core::mem::size_of::<T>();
+    let mut i = 0;
+    while i < len {
+        // SAFETY: `i < len == size_of::<T>()`, so both reads are in bounds.
+        if unsafe { *left.add(i) != *right.add(i) } {
+            return false;
         }
-    };
+        i += 1;
+    }
+    true
 }
 
+/// Orders `left` and `right` by the unsigned bit-pattern of their raw bytes
+/// (most-significant byte first, independent of target endianness).
+///
+/// # Safety
+///
+/// `T` must have no padding bytes, otherwise this reads uninitialized memory.
 #[inline(always)]
-pub(crate) const fn const_enum_eq<T>(left: &T, right: &T) -> bool {
-    const_operator!(T, left (==) right)
+const unsafe fn bytes_lt<T>(left: &T, right: &T) -> bool {
+    let left = left as *const T as *const u8;
+    let right = right as *const T as *const u8;
+    let len = core::mem::size_of::<T>();
+
+    let mut i = len;
+    while i > 0 {
+        i -= 1;
+        let byte_index = if cfg!(target_endian = "little") {
+            i
+        } else {
+            len - 1 - i
+        };
+        // SAFETY: `byte_index < len == size_of::<T>()`, so both reads are in bounds.
+        let (l, r) = unsafe { (*left.add(byte_index), *right.add(byte_index)) };
+        if l != r {
+            return l < r;
+        }
+    }
+    false
 }
 
-#[inline(always)]
-pub(crate) const fn const_enum_lt<T>(left: &T, right: &T) -> bool {
-    const_operator!(T, left (<) right)
-}
-
-pub const fn sort_variants<const N: usize, T>(mut arr: [T; N]) -> [T; N] {
+/// Sorts variants by the unsigned bit-pattern of their in-memory representation.
+///
+/// This is intended to be called inside `const {}` blocks in the derive macro,
+/// so its O(N log N) cost is paid at compile time, not runtime.
+///
+/// # Safety
+///
+/// `T` must have no padding bytes (see [`crate::Enumable`]'s safety contract).
+#[doc(hidden)]
+pub const unsafe fn sort_variants<const N: usize, T: Copy>(mut arr: [T; N]) -> [T; N] {
     let mut i = 1;
     while i < N {
         let mut j = i;
-        while j > 0 && const_enum_lt(&arr[j], &arr[j - 1]) {
+        // SAFETY: caller upholds the padding-free contract documented above.
+        while j > 0 && unsafe { bytes_lt(&arr[j], &arr[j - 1]) } {
             arr.swap(j, j - 1);
             j -= 1;
         }
@@ -37,28 +73,20 @@ pub const fn sort_variants<const N: usize, T>(mut arr: [T; N]) -> [T; N] {
     arr
 }
 
-pub(crate) const fn is_sorted<T>(arr: &[T]) -> bool {
-    if arr.is_empty() {
-        return true;
-    }
-    let mut i = 0;
-    while i < arr.len() - 1 {
-        if !const_enum_lt(&arr[i], &arr[i + 1]) {
-            return false;
-        }
-        i += 1;
-    }
-    true
-}
-
-/// Finds the index of `variant` in the `variants` slice using const-compatible equality.
+/// Finds the index of `variant` in the `variants` slice using byte-level equality.
 ///
-/// This function is intended to be called inside `const { }` blocks in the derive macro,
+/// This is intended to be called inside `const {}` blocks in the derive macro,
 /// so its O(N) cost is paid at compile time, not runtime.
-pub const fn variant_index_of<T>(variant: &T, variants: &[T]) -> usize {
+///
+/// # Safety
+///
+/// `T` must have no padding bytes (see [`crate::Enumable`]'s safety contract).
+#[doc(hidden)]
+pub const unsafe fn variant_index_of<T>(variant: &T, variants: &[T]) -> usize {
     let mut i = 0;
     while i < variants.len() {
-        if const_enum_eq(variant, &variants[i]) {
+        // SAFETY: caller upholds the padding-free contract documented above.
+        if unsafe { bytes_eq(variant, &variants[i]) } {
             return i;
         }
         i += 1;
@@ -68,19 +96,37 @@ pub const fn variant_index_of<T>(variant: &T, variants: &[T]) -> usize {
     )
 }
 
+/// Checks that `arr` is sorted by the unsigned bit-pattern of its elements.
+#[cfg(debug_assertions)]
+pub(crate) const fn is_sorted<T: Enumable>(arr: &[T]) -> bool {
+    if arr.is_empty() {
+        return true;
+    }
+    let mut i = 0;
+    while i < arr.len() - 1 {
+        // SAFETY: `T: Enumable`'s safety contract guarantees no padding bytes.
+        if !unsafe { bytes_lt(&arr[i], &arr[i + 1]) } {
+            return false;
+        }
+        i += 1;
+    }
+    true
+}
+
 /// Binary search for a variant's index in the sorted `VARIANTS` array.
 ///
 /// This is a `const fn` used by:
 /// - The default `Enumable::variant_index` implementation (O(log N) fallback).
 /// - The `get_const`, `get_mut_const`, `set_const`, and `remove_const` methods.
-pub const fn binary_search_index<T: crate::Enumable>(variant: &T) -> usize {
+pub(crate) const fn binary_search_index<T: Enumable>(variant: &T) -> usize {
     let variants = T::VARIANTS;
     let mut low = 0;
     let mut high = variants.len();
 
     while low < high {
         let mid = low + (high - low) / 2;
-        if const_enum_lt(&variants[mid], variant) {
+        // SAFETY: `T: Enumable`'s safety contract guarantees no padding bytes.
+        if unsafe { bytes_lt(&variants[mid], variant) } {
             low = mid + 1;
         } else {
             high = mid;
@@ -88,7 +134,7 @@ pub const fn binary_search_index<T: crate::Enumable>(variant: &T) -> usize {
     }
 
     debug_assert!(
-        low < variants.len() && const_enum_eq(&variants[low], variant),
+        low < variants.len() && unsafe { bytes_eq(&variants[low], variant) },
         "enum-table: variant not found in VARIANTS via binary search. This is a bug in the Enumable implementation."
     );
 
@@ -96,26 +142,38 @@ pub const fn binary_search_index<T: crate::Enumable>(variant: &T) -> usize {
 }
 
 /// Stable polyfill for `core::array::try_from_fn` (unstable `array_try_from_fn`).
-///
-/// Builds an array of `N` elements by calling `f(0)`, `f(1)`, …, `f(N-1)`.
-/// If any call returns `Err(e)`, already-initialized elements are properly
-/// dropped and the error is propagated.
 pub(crate) fn try_collect_array<V, E, const N: usize>(
     mut f: impl FnMut(usize) -> Result<V, E>,
 ) -> Result<[V; N], E> {
-    let mut array = core::mem::MaybeUninit::<[V; N]>::uninit();
-    let ptr = array.as_mut_ptr().cast::<V>();
+    struct InitGuard<V> {
+        ptr: *mut V,
+        len: usize,
+    }
 
-    for i in 0..N {
-        match f(i) {
-            Ok(v) => unsafe { ptr.add(i).write(v) },
-            Err(e) => {
-                (0..i).for_each(|j| unsafe { ptr.add(j).drop_in_place() });
-                return Err(e);
+    impl<V> Drop for InitGuard<V> {
+        fn drop(&mut self) {
+            for i in 0..self.len {
+                // SAFETY: elements `0..self.len` were initialized by the caller
+                // and have not been read out yet.
+                unsafe { self.ptr.add(i).drop_in_place() };
             }
         }
     }
 
+    let mut array = core::mem::MaybeUninit::<[V; N]>::uninit();
+    let mut guard = InitGuard {
+        ptr: array.as_mut_ptr().cast::<V>(),
+        len: 0,
+    };
+
+    for i in 0..N {
+        let v = f(i)?;
+        // SAFETY: index `i` is within bounds (`i < N`) and not yet initialized.
+        unsafe { guard.ptr.add(i).write(v) };
+        guard.len = i + 1;
+    }
+
+    core::mem::forget(guard);
     // SAFETY: all N elements have been initialized in the loop above.
     Ok(unsafe { array.assume_init() })
 }
@@ -125,44 +183,61 @@ mod tests {
     use super::*;
 
     #[repr(u8)]
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, crate::Enumable)]
     enum Color {
         Red = 33,
         Green = 11,
         Blue = 222,
     }
 
-    // --- const_enum_eq ---
+    #[repr(i8)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, crate::Enumable)]
+    enum Signed {
+        Neg = -1,
+        Zero = 0,
+        Pos = 1,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, crate::Enumable)]
+    enum Zst {
+        Only,
+    }
+
+    // --- bytes_eq / bytes_lt (via Color) ---
 
     #[test]
-    fn const_enum_eq_same_variant() {
-        assert!(const_enum_eq(&Color::Red, &Color::Red));
-        assert!(const_enum_eq(&Color::Green, &Color::Green));
-        assert!(const_enum_eq(&Color::Blue, &Color::Blue));
+    fn bytes_eq_same_variant() {
+        assert!(unsafe { bytes_eq(&Color::Red, &Color::Red) });
+        assert!(unsafe { bytes_eq(&Color::Green, &Color::Green) });
     }
 
     #[test]
-    fn const_enum_eq_different_variant() {
-        assert!(!const_enum_eq(&Color::Red, &Color::Green));
-        assert!(!const_enum_eq(&Color::Green, &Color::Blue));
-        assert!(!const_enum_eq(&Color::Red, &Color::Blue));
+    fn bytes_eq_different_variant() {
+        assert!(!unsafe { bytes_eq(&Color::Red, &Color::Green) });
     }
 
-    // --- const_enum_lt ---
-
     #[test]
-    fn const_enum_lt_ordering() {
+    fn bytes_lt_ordering() {
         // Green(11) < Red(33) < Blue(222)
-        assert!(const_enum_lt(&Color::Green, &Color::Red));
-        assert!(const_enum_lt(&Color::Red, &Color::Blue));
-        assert!(const_enum_lt(&Color::Green, &Color::Blue));
+        assert!(unsafe { bytes_lt(&Color::Green, &Color::Red) });
+        assert!(unsafe { bytes_lt(&Color::Red, &Color::Blue) });
+        assert!(!unsafe { bytes_lt(&Color::Red, &Color::Green) });
+        assert!(!unsafe { bytes_lt(&Color::Red, &Color::Red) });
     }
 
     #[test]
-    fn const_enum_lt_not_less() {
-        assert!(!const_enum_lt(&Color::Red, &Color::Green));
-        assert!(!const_enum_lt(&Color::Blue, &Color::Red));
-        assert!(!const_enum_lt(&Color::Red, &Color::Red));
+    fn bytes_lt_unsigned_bit_pattern_order() {
+        // Neg(-1) has bit pattern 0xFF, which is greater than Zero(0) and Pos(1)
+        // under unsigned ordering, even though -1 < 0 numerically.
+        assert!(unsafe { bytes_lt(&Signed::Zero, &Signed::Neg) });
+        assert!(unsafe { bytes_lt(&Signed::Pos, &Signed::Neg) });
+        assert!(!unsafe { bytes_lt(&Signed::Neg, &Signed::Zero) });
+    }
+
+    #[test]
+    fn bytes_eq_lt_zero_sized() {
+        assert!(unsafe { bytes_eq(&Zst::Only, &Zst::Only) });
+        assert!(!unsafe { bytes_lt(&Zst::Only, &Zst::Only) });
     }
 
     // --- sort_variants ---
@@ -170,51 +245,55 @@ mod tests {
     #[test]
     fn sort_variants_already_sorted() {
         let arr = [Color::Green, Color::Red, Color::Blue];
-        let sorted = sort_variants(arr);
+        let sorted = unsafe { sort_variants(arr) };
         assert_eq!(sorted, [Color::Green, Color::Red, Color::Blue]);
     }
 
     #[test]
     fn sort_variants_reverse_order() {
         let arr = [Color::Blue, Color::Red, Color::Green];
-        let sorted = sort_variants(arr);
+        let sorted = unsafe { sort_variants(arr) };
         assert_eq!(sorted, [Color::Green, Color::Red, Color::Blue]);
     }
 
     #[test]
     fn sort_variants_single_element() {
         let arr = [Color::Red];
-        let sorted = sort_variants(arr);
+        let sorted = unsafe { sort_variants(arr) };
         assert_eq!(sorted, [Color::Red]);
     }
 
     #[test]
     fn sort_variants_empty() {
         let arr: [Color; 0] = [];
-        let sorted = sort_variants(arr);
+        let sorted = unsafe { sort_variants(arr) };
         assert_eq!(sorted, []);
     }
 
     // --- is_sorted ---
 
+    #[cfg(debug_assertions)]
     #[test]
     fn is_sorted_sorted_slice() {
         let arr = [Color::Green, Color::Red, Color::Blue];
         assert!(is_sorted(&arr));
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     fn is_sorted_unsorted_slice() {
         let arr = [Color::Red, Color::Green, Color::Blue];
         assert!(!is_sorted(&arr));
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     fn is_sorted_single_element() {
         let arr = [Color::Red];
         assert!(is_sorted(&arr));
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     fn is_sorted_empty() {
         let arr: [Color; 0] = [];
@@ -226,27 +305,19 @@ mod tests {
     #[test]
     fn variant_index_of_finds_each() {
         let sorted = [Color::Green, Color::Red, Color::Blue];
-        assert_eq!(variant_index_of(&Color::Green, &sorted), 0);
-        assert_eq!(variant_index_of(&Color::Red, &sorted), 1);
-        assert_eq!(variant_index_of(&Color::Blue, &sorted), 2);
+        assert_eq!(unsafe { variant_index_of(&Color::Green, &sorted) }, 0);
+        assert_eq!(unsafe { variant_index_of(&Color::Red, &sorted) }, 1);
+        assert_eq!(unsafe { variant_index_of(&Color::Blue, &sorted) }, 2);
     }
 
     // --- binary_search_index ---
 
     #[test]
     fn binary_search_index_finds_each() {
-        // Uses Enumable impl, so we need the derive
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, crate::Enumable)]
-        #[repr(u8)]
-        enum Fruit {
-            Apple = 50,
-            Banana = 10,
-            Cherry = 200,
-        }
-        // VARIANTS sorted by discriminant: Banana(10), Apple(50), Cherry(200)
-        assert_eq!(binary_search_index(&Fruit::Banana), 0);
-        assert_eq!(binary_search_index(&Fruit::Apple), 1);
-        assert_eq!(binary_search_index(&Fruit::Cherry), 2);
+        // VARIANTS sorted by discriminant: Green(11), Red(33), Blue(222)
+        assert_eq!(binary_search_index(&Color::Green), 0);
+        assert_eq!(binary_search_index(&Color::Red), 1);
+        assert_eq!(binary_search_index(&Color::Blue), 2);
     }
 
     // --- try_collect_array ---
@@ -296,6 +367,36 @@ mod tests {
 
         assert!(result.is_err());
         // Elements 0, 1, 2 were initialized then must be dropped by the guard
+        assert_eq!(DROP_COUNT.load(Ordering::SeqCst), 3);
+    }
+
+    #[test]
+    fn try_collect_array_drops_on_panic() {
+        use std::panic::{AssertUnwindSafe, catch_unwind};
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        static DROP_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+        struct Droppable;
+        impl Drop for Droppable {
+            fn drop(&mut self) {
+                DROP_COUNT.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+
+        DROP_COUNT.store(0, Ordering::SeqCst);
+
+        let result = catch_unwind(AssertUnwindSafe(|| {
+            let _: Result<[Droppable; 5], ()> = try_collect_array(|i| {
+                if i == 3 {
+                    panic!("boom");
+                }
+                Ok(Droppable)
+            });
+        }));
+
+        assert!(result.is_err());
+        // Elements 0, 1, 2 were initialized then must be dropped by the guard's Drop impl.
         assert_eq!(DROP_COUNT.load(Ordering::SeqCst), 3);
     }
 

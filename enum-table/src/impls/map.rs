@@ -24,7 +24,7 @@ impl<K: Enumable + Eq + Hash, V, const N: usize> EnumTable<K, V, N> {
     ///     Pending,
     /// }
     ///
-    /// let table = EnumTable::<Status, &str, { Status::COUNT }>::new_with_fn(|status| match status {
+    /// let table = EnumTable::<Status, &str, { Status::VARIANTS.len() }>::new_with_fn(|status| match status {
     ///     Status::Active => "running",
     ///     Status::Inactive => "stopped",
     ///     Status::Pending => "waiting",
@@ -67,7 +67,7 @@ impl<K: Enumable + Eq + Hash, V, const N: usize> EnumTable<K, V, N> {
     /// hash_map.insert(Priority::Medium, 5);
     /// hash_map.insert(Priority::High, 10);
     ///
-    /// let table = EnumTable::<Priority, i32, { Priority::COUNT }>::try_from_hash_map(hash_map)
+    /// let table = EnumTable::<Priority, i32, { Priority::VARIANTS.len() }>::try_from_hash_map(hash_map)
     ///     .expect("HashMap should contain all variants");
     ///
     /// assert_eq!(table.get(&Priority::Low), &1);
@@ -91,7 +91,7 @@ impl<K: Enumable + Eq + Hash, V, const N: usize> EnumTable<K, V, N> {
     /// incomplete_map.insert(Priority::Medium, 5);
     /// // Missing Priority::High
     ///
-    /// let result = EnumTable::<Priority, i32, { Priority::COUNT }>::try_from_hash_map(incomplete_map);
+    /// let result = EnumTable::<Priority, i32, { Priority::VARIANTS.len() }>::try_from_hash_map(incomplete_map);
     /// assert!(result.is_none());
     /// ```
     pub fn try_from_hash_map(mut map: HashMap<K, V>) -> Option<EnumTable<K, V, N>> {
@@ -100,8 +100,7 @@ impl<K: Enumable + Eq + Hash, V, const N: usize> EnumTable<K, V, N> {
         }
 
         let table =
-            crate::intrinsics::try_collect_array(|i| map.remove(&K::VARIANTS[i]).ok_or(()))
-                .ok()?;
+            crate::intrinsics::try_collect_array(|i| map.remove(&K::VARIANTS[i]).ok_or(())).ok()?;
         Some(EnumTable::new(table))
     }
 }
@@ -125,7 +124,7 @@ impl<K: Enumable + Ord, V, const N: usize> EnumTable<K, V, N> {
     ///     Advanced,
     /// }
     ///
-    /// let table = EnumTable::<Level, u32, { Level::COUNT }>::new_with_fn(|level| match level {
+    /// let table = EnumTable::<Level, u32, { Level::VARIANTS.len() }>::new_with_fn(|level| match level {
     ///     Level::Beginner => 100,
     ///     Level::Intermediate => 500,
     ///     Level::Advanced => 1000,
@@ -168,7 +167,7 @@ impl<K: Enumable + Ord, V, const N: usize> EnumTable<K, V, N> {
     /// btree_map.insert(Grade::B, 80.0);
     /// btree_map.insert(Grade::C, 70.0);
     ///
-    /// let table = EnumTable::<Grade, f64, { Grade::COUNT }>::try_from_btree_map(btree_map)
+    /// let table = EnumTable::<Grade, f64, { Grade::VARIANTS.len() }>::try_from_btree_map(btree_map)
     ///     .expect("BTreeMap should contain all variants");
     ///
     /// assert_eq!(table.get(&Grade::A), &90.0);
@@ -192,7 +191,7 @@ impl<K: Enumable + Ord, V, const N: usize> EnumTable<K, V, N> {
     /// incomplete_map.insert(Grade::B, 80.0);
     /// // Missing Grade::C
     ///
-    /// let result = EnumTable::<Grade, f64, { Grade::COUNT }>::try_from_btree_map(incomplete_map);
+    /// let result = EnumTable::<Grade, f64, { Grade::VARIANTS.len() }>::try_from_btree_map(incomplete_map);
     /// assert!(result.is_none());
     /// ```
     pub fn try_from_btree_map(mut map: BTreeMap<K, V>) -> Option<EnumTable<K, V, N>> {
@@ -201,8 +200,7 @@ impl<K: Enumable + Ord, V, const N: usize> EnumTable<K, V, N> {
         }
 
         let table =
-            crate::intrinsics::try_collect_array(|i| map.remove(&K::VARIANTS[i]).ok_or(()))
-                .ok()?;
+            crate::intrinsics::try_collect_array(|i| map.remove(&K::VARIANTS[i]).ok_or(())).ok()?;
         Some(EnumTable::new(table))
     }
 }
@@ -218,7 +216,7 @@ mod tests {
         Blue,
     }
 
-    const TABLES: EnumTable<Color, &'static str, { Color::COUNT }> =
+    const TABLES: EnumTable<Color, &'static str, { Color::VARIANTS.len() }> =
         crate::et!(Color, &'static str, |color| match color {
             Color::Red => "Red",
             Color::Green => "Green",
@@ -247,7 +245,8 @@ mod tests {
         .collect();
 
         let table =
-            EnumTable::<Color, &str, { Color::COUNT }>::try_from_hash_map(hash_map).unwrap();
+            EnumTable::<Color, &str, { Color::VARIANTS.len() }>::try_from_hash_map(hash_map)
+                .unwrap();
         assert_eq!(table.get(&Color::Red), &"Red");
         assert_eq!(table.get(&Color::Green), &"Green");
         assert_eq!(table.get(&Color::Blue), &"Blue");
@@ -262,7 +261,8 @@ mod tests {
         .into_iter()
         .collect();
 
-        let result = EnumTable::<Color, &str, { Color::COUNT }>::try_from_hash_map(hash_map);
+        let result =
+            EnumTable::<Color, &str, { Color::VARIANTS.len() }>::try_from_hash_map(hash_map);
         assert!(result.is_none());
     }
 
@@ -288,7 +288,8 @@ mod tests {
         .collect();
 
         let table =
-            EnumTable::<Color, &str, { Color::COUNT }>::try_from_btree_map(btree_map).unwrap();
+            EnumTable::<Color, &str, { Color::VARIANTS.len() }>::try_from_btree_map(btree_map)
+                .unwrap();
         assert_eq!(table.get(&Color::Red), &"Red");
         assert_eq!(table.get(&Color::Green), &"Green");
         assert_eq!(table.get(&Color::Blue), &"Blue");
@@ -303,7 +304,8 @@ mod tests {
         .into_iter()
         .collect();
 
-        let result = EnumTable::<Color, &str, { Color::COUNT }>::try_from_btree_map(btree_map);
+        let result =
+            EnumTable::<Color, &str, { Color::VARIANTS.len() }>::try_from_btree_map(btree_map);
         assert!(result.is_none());
     }
 }

@@ -14,6 +14,13 @@ use crate::{EnumTable, Enumable};
 /// will trigger a debug assertion failure.
 /// For a clearer and more concise approach, consider using the [`crate::et`] macro.
 ///
+/// Dropping a builder before it is fully pushed leaks its already-pushed
+/// elements instead of running their destructors. This is intentional:
+/// `build_unchecked`/`build_to_unchecked` are `const fn`, and Rust cannot
+/// evaluate a destructor at compile time, so `EnumTableBuilder` cannot
+/// implement `Drop` without losing `const`-context support, which is the
+/// entire point of this type.
+///
 /// # Example
 /// ```rust
 /// use enum_table::{EnumTable, Enumable, builder::EnumTableBuilder,};
@@ -25,8 +32,8 @@ use crate::{EnumTable, Enumable};
 ///     C,
 /// }
 ///
-/// const TABLE: EnumTable<Test, &'static str, { Test::COUNT }> = {
-///    let mut builder = EnumTableBuilder::<Test, &'static str, { Test::COUNT }>::new();
+/// const TABLE: EnumTable<Test, &'static str, { Test::VARIANTS.len() }> = {
+///    let mut builder = EnumTableBuilder::<Test, &'static str, { Test::VARIANTS.len() }>::new();
 ///    unsafe {
 ///        builder.push_unchecked(&Test::A, "A");
 ///        builder.push_unchecked(&Test::B, "B");
@@ -184,8 +191,9 @@ mod tests {
             C,
         }
 
-        const TABLE: EnumTable<Test, &'static str, { Test::COUNT }> = {
-            let mut builder = EnumTableBuilder::<Test, &'static str, { Test::COUNT }>::new();
+        const TABLE: EnumTable<Test, &'static str, { Test::VARIANTS.len() }> = {
+            let mut builder =
+                EnumTableBuilder::<Test, &'static str, { Test::VARIANTS.len() }>::new();
 
             let mut i = 0;
             while i < builder.capacity() {

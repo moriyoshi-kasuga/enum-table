@@ -12,11 +12,12 @@ pub enum Test {
 fn test() {
     assert_eq!(Test::VARIANTS, &[Test::B, Test::C, Test::A]);
 
-    let mut table = EnumTable::<Test, &'static str, { Test::COUNT }>::new_with_fn(|t| match t {
-        Test::A => "A",
-        Test::B => "B",
-        Test::C => "C",
-    });
+    let mut table =
+        EnumTable::<Test, &'static str, { Test::VARIANTS.len() }>::new_with_fn(|t| match t {
+            Test::A => "A",
+            Test::B => "B",
+            Test::C => "C",
+        });
 
     assert_eq!(table.get(&Test::A), &"A");
     assert_eq!(table.get(&Test::B), &"B");

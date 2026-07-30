@@ -13,18 +13,14 @@
 /// ```rust
 /// use enum_table::{EnumTable, Enumable, et};
 ///
-/// #[derive(Copy, Clone)]
+/// #[derive(Enumable, Copy, Clone)]
 /// enum Test {
 ///     A,
 ///     B,
 ///     C,
 /// }
 ///
-/// impl enum_table::Enumable for Test {
-///     const VARIANTS: &'static [Self] = &[Test::A, Test::B, Test::C];
-/// }
-///
-/// const TABLE: EnumTable<Test, &'static str, { Test::COUNT }> =
+/// const TABLE: EnumTable<Test, &'static str, { Test::VARIANTS.len() }> =
 ///     et!(Test, &'static str, |t| match t {
 ///         Test::A => "A",
 ///         Test::B => "B",
@@ -34,7 +30,7 @@
 /// assert_eq!(TABLE.get(&Test::A), &"A");
 /// assert_eq!(TABLE.get(&Test::B), &"B");
 /// assert_eq!(TABLE.get(&Test::C), &"C");
-///
+/// ```
 #[macro_export]
 macro_rules! et {
     ($variant:ty, $value:ty, $COUNT:block, |$variable:ident| $($tt:tt)*) => {
@@ -55,7 +51,7 @@ macro_rules! et {
         }
     };
     ($variant:ty, $value:ty, |$variable:ident| $($tt:tt)*) => {
-        $crate::et!($variant, $value, { <$variant as $crate::Enumable>::COUNT }, |$variable| $($tt)*)
+        $crate::et!($variant, $value, { <$variant as $crate::Enumable>::VARIANTS.len() }, |$variable| $($tt)*)
     };
 }
 
@@ -72,7 +68,7 @@ mod tests {
             C,
         }
 
-        const TABLE: EnumTable<Test, &'static str, { Test::COUNT }> =
+        const TABLE: EnumTable<Test, &'static str, { Test::VARIANTS.len() }> =
             et!(Test, &'static str, |t| match t {
                 Test::A => "A",
                 Test::B => "B",

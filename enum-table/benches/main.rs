@@ -14,7 +14,7 @@ enum Letter {
     G,
 }
 
-fn new() -> EnumTable<Letter, &'static str, { Letter::COUNT }> {
+fn new() -> EnumTable<Letter, &'static str, { Letter::VARIANTS.len() }> {
     EnumTable::new_with_fn(|letter| match letter {
         Letter::A => "Alpha",
         Letter::B => "Bravo",

@@ -35,13 +35,25 @@ fn derive_enumable_internal(input: DeriveInput) -> Result<TokenStream> {
 
     let ident = &input.ident;
     let expanded = quote! {
-        impl enum_table::Enumable for #ident {
-            const VARIANTS: &'static [#ident] = &enum_table::__private::sort_variants([#(Self::#variant_idents),*]);
+        // SAFETY: `#variant_idents` lists every variant of `#ident` exactly
+        // once, this enum has no fields (checked above) and therefore no
+        // padding bytes, and `sort_variants` produces a `VARIANTS` array
+        // sorted by the unsigned bit-pattern of each variant, as required by
+        // `enum_table::Enumable`'s safety contract.
+        unsafe impl enum_table::Enumable for #ident {
+            const VARIANTS: &'static [#ident] = &unsafe {
+                enum_table::__private::sort_variants([#(Self::#variant_idents),*])
+            };
 
             fn variant_index(&self) -> usize {
                 match *self {
                     #(
-                        Self::#variant_idents => const { enum_table::__private::variant_index_of(&#ident::#variant_idents, <#ident as enum_table::Enumable>::VARIANTS) },
+                        Self::#variant_idents => const {
+                            // SAFETY: see the `unsafe impl` block above.
+                            unsafe {
+                                enum_table::__private::variant_index_of(&#ident::#variant_idents, <#ident as enum_table::Enumable>::VARIANTS)
+                            }
+                        },
                     )*
                 }
             }
