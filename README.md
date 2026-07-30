@@ -355,42 +355,63 @@ Licensed under the [MIT license](https://github.com/moriyoshi-kasuga/enum-table/
 
 ## Benchmarks
 
-Invoke the benchmarks using `cargo bench` to compare the performance of `EnumTable`
-with a `HashMap` for enum keys. The benchmarks measure the time taken for
-creating a table, getting values, and setting values.
-
-Inputs and outputs are wrapped in `std::hint::black_box` to prevent the compiler
-from constant-folding the lookups. The `get`/`set` benchmarks iterate over all 7
-variants per iteration, so the reported time covers 7 operations (divide by 7 for
-a rough per-operation cost).
+- **construction**: building a fully populated table/map from scratch
+  (`EnumTable::new_with_fn` vs. `HashMap::new` + inserting every entry).
+- **single_get** / **single_set**: a single lookup/update on one key, measured
+  in isolation (also compares `get` against the `const fn` binary-search
+  `get_const`).
+- **bulk_get_all_variants** / **bulk_set_all_variants**: reading/writing every
+  variant once per iteration, representing a whole-table workload rather than
+  a single operation.
+- **iteration**: iterating over every key-value pair.
+- **conversions**: `into_vec`/`try_from_vec` and `into_hash_map`/
+  `try_from_hash_map`, rebuilding the source fresh each iteration so only the
+  conversion itself is measured.
 
 <details>
 <summary>Benchmark results</summary>
 
 ```text
-EnumTable::new_with_fn  time:   [3.7279 ns 3.7305 ns 3.7334 ns]
-Found 10 outliers among 100 measurements (10.00%)
-  6 (6.00%) high mild
-  4 (4.00%) high severe
+construction/EnumTable::new_with_fn
+                        time:   [3.7377 ns 3.7418 ns 3.7462 ns]
+construction/HashMap (new + insert all)
+                        time:   [72.319 ns 72.352 ns 72.386 ns]
 
-EnumTable::get          time:   [1.9207 ns 1.9229 ns 1.9254 ns]
-Found 4 outliers among 100 measurements (4.00%)
-  3 (3.00%) high mild
-  1 (1.00%) high severe
+single_get/EnumTable::get
+                        time:   [496.33 ps 499.16 ps 502.90 ps]
+single_get/EnumTable::get_const
+                        time:   [2.2176 ns 2.2185 ns 2.2196 ns]
+single_get/HashMap::get 
+                        time:   [6.7604 ns 6.7634 ns 6.7673 ns]
 
-HashMap::get            time:   [44.039 ns 44.070 ns 44.110 ns]
-Found 7 outliers among 100 measurements (7.00%)
-  4 (4.00%) high mild
-  3 (3.00%) high severe
+single_set/EnumTable::set
+                        time:   [3.0835 ns 3.0857 ns 3.0880 ns]
+single_set/HashMap::insert
+                        time:   [8.1702 ns 8.1880 ns 8.2065 ns]
 
-EnumTable::set          time:   [21.530 ns 21.541 ns 21.554 ns]
-Found 8 outliers among 100 measurements (8.00%)
-  4 (4.00%) high mild
-  4 (4.00%) high severe
+bulk_get_all_variants/EnumTable::get
+                        time:   [2.4252 ns 2.4265 ns 2.4283 ns]
+bulk_get_all_variants/HashMap::get
+                        time:   [42.776 ns 42.802 ns 42.832 ns]
 
-HashMap::insert         time:   [53.874 ns 53.926 ns 53.983 ns]
-Found 2 outliers among 100 measurements (2.00%)
-  2 (2.00%) high mild
+bulk_set_all_variants/EnumTable::set
+                        time:   [21.622 ns 21.649 ns 21.677 ns]
+bulk_set_all_variants/HashMap::insert
+                        time:   [56.734 ns 56.822 ns 56.923 ns]
+
+iteration/EnumTable::iter
+                        time:   [587.40 ps 587.96 ps 588.58 ps]
+iteration/HashMap::iter
+                        time:   [3.8318 ns 3.8357 ns 3.8405 ns]
+
+conversions/EnumTable::into_vec
+                        time:   [43.888 ns 43.943 ns 44.005 ns]
+conversions/EnumTable::try_from_vec
+                        time:   [20.183 ns 20.328 ns 20.462 ns]
+conversions/EnumTable::into_hash_map
+                        time:   [84.923 ns 85.154 ns 85.435 ns]
+conversions/EnumTable::try_from_hash_map
+                        time:   [95.706 ns 95.871 ns 96.046 ns]
 ```
 
 </details>
