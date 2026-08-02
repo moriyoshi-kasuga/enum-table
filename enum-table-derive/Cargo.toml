@@ -18,5 +18,9 @@ syn = { version = "2.0" }
 proc-macro2 = "1.0"
 quote = "1.0"
 
+[dev-dependencies]
+enum-table = { path = "../enum-table" }
+trybuild = "1.0"
+
 [lints]
 workspace = true

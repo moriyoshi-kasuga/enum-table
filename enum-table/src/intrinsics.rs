@@ -1,10 +1,7 @@
 use crate::Enumerable;
 
-/// Compares the raw bytes of `left` and `right` for equality.
-///
-/// # Safety
-///
-/// `T` must have no padding bytes, otherwise this reads uninitialized memory.
+/// Byte-for-byte equality of `left` and `right`.
+/// SAFETY: `T` must have no padding bytes, otherwise this reads uninitialized memory.
 #[inline(always)]
 const unsafe fn bytes_eq<T>(left: &T, right: &T) -> bool {
     let left = left as *const T as *const u8;
@@ -23,10 +20,7 @@ const unsafe fn bytes_eq<T>(left: &T, right: &T) -> bool {
 
 /// Orders `left` and `right` by the unsigned bit-pattern of their raw bytes
 /// (most-significant byte first, independent of target endianness).
-///
-/// # Safety
-///
-/// `T` must have no padding bytes, otherwise this reads uninitialized memory.
+/// SAFETY: `T` must have no padding bytes, otherwise this reads uninitialized memory.
 #[inline(always)]
 const unsafe fn bytes_lt<T>(left: &T, right: &T) -> bool {
     let left = left as *const T as *const u8;
@@ -113,11 +107,7 @@ pub(crate) const fn is_sorted<T: Enumerable>(arr: &[T]) -> bool {
     true
 }
 
-/// Binary search for a variant's index in the sorted `VARIANTS` array.
-///
-/// This is a `const fn` used by:
-/// - The default `Enumerable::variant_index` implementation (O(log N) fallback).
-/// - The `get_const`, `get_mut_const`, `set_const`, and `remove_const` methods.
+/// Binary search for `variant`'s index in the sorted `VARIANTS` array.
 pub(crate) const fn binary_search_index<T: Enumerable>(variant: &T) -> usize {
     let variants = T::VARIANTS;
     let mut low = 0;

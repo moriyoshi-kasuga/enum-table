@@ -1,0 +1,5 @@
+error: Enumerable can only be derived for unit variants
+ --> tests/compile_fail/fields.rs:5:6
+  |
+5 |     A(u8),
+  |      ^^^^

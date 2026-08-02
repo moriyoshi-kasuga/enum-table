@@ -12,6 +12,22 @@ pub fn derive_enumerable(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 }
 
 fn derive_enumerable_internal(input: DeriveInput) -> Result<TokenStream> {
+    if !input.generics.params.is_empty() {
+        return Err(syn::Error::new_spanned(
+            &input.generics,
+            "Enumerable cannot be derived for generic enums",
+        ));
+    }
+
+    if repr_has_align(&input.attrs)? {
+        return Err(syn::Error::new_spanned(
+            &input,
+            "Enumerable cannot be derived for enums with `#[repr(align(N))]`: an alignment \
+             larger than the discriminant's natural size introduces trailing padding bytes, \
+             which would make this crate's byte-level comparisons read uninitialized memory",
+        ));
+    }
+
     let Data::Enum(data_enum) = input.data else {
         return Err(syn::Error::new_spanned(
             &input,
@@ -61,4 +77,34 @@ fn derive_enumerable_internal(input: DeriveInput) -> Result<TokenStream> {
     };
 
     Ok(expanded)
+}
+
+/// Returns `true` if any `#[repr(...)]` attribute on `attrs` contains an `align(N)` item.
+fn repr_has_align(attrs: &[syn::Attribute]) -> Result<bool> {
+    for attr in attrs {
+        if !attr.path().is_ident("repr") {
+            continue;
+        }
+
+        let mut has_align = false;
+        attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident("align") {
+                has_align = true;
+            }
+            // `align(N)` carries a parenthesized value that we must consume
+            // ourselves, otherwise `parse_nested_meta` errors on the leftover
+            // tokens; we only care whether `align` is present, not its value.
+            if meta.input.peek(syn::token::Paren) {
+                let content;
+                syn::parenthesized!(content in meta.input);
+                let _ = content.parse::<proc_macro2::TokenStream>();
+            }
+            Ok(())
+        })?;
+
+        if has_align {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }

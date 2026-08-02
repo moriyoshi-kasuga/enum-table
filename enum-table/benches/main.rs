@@ -14,7 +14,7 @@ enum Letter {
     G,
 }
 
-const LEN: usize = Letter::VARIANTS.len();
+const LEN: usize = Letter::COUNT;
 
 fn value_for(letter: &Letter) -> &'static str {
     match letter {
@@ -33,17 +33,25 @@ fn new_table() -> EnumTable<Letter, &'static str, LEN> {
 }
 
 fn new_hash_map() -> HashMap<Letter, &'static str> {
-    Letter::VARIANTS.iter().map(|l| (*l, value_for(l))).collect()
+    Letter::VARIANTS
+        .iter()
+        .map(|l| (*l, value_for(l)))
+        .collect()
 }
 
 fn new_vec() -> Vec<(Letter, &'static str)> {
-    Letter::VARIANTS.iter().map(|l| (*l, value_for(l))).collect()
+    Letter::VARIANTS
+        .iter()
+        .map(|l| (*l, value_for(l)))
+        .collect()
 }
 
 /// Building a fully populated table/map from scratch.
 fn construction(c: &mut Criterion) {
     let mut group = c.benchmark_group("construction");
-    group.bench_function("EnumTable::new_with_fn", |b| b.iter(|| black_box(new_table())));
+    group.bench_function("EnumTable::new_with_fn", |b| {
+        b.iter(|| black_box(new_table()))
+    });
     group.bench_function("HashMap (new + insert all)", |b| {
         b.iter(|| black_box(new_hash_map()))
     });
@@ -164,7 +172,11 @@ fn iteration(c: &mut Criterion) {
 fn conversions(c: &mut Criterion) {
     let mut group = c.benchmark_group("conversions");
     group.bench_function("EnumTable::into_vec", |b| {
-        b.iter_batched(new_table, |table| black_box(table.into_vec()), BatchSize::SmallInput)
+        b.iter_batched(
+            new_table,
+            |table| black_box(table.into_vec()),
+            BatchSize::SmallInput,
+        )
     });
     group.bench_function("EnumTable::try_from_vec", |b| {
         b.iter_batched(
@@ -174,12 +186,20 @@ fn conversions(c: &mut Criterion) {
         )
     });
     group.bench_function("EnumTable::into_hash_map", |b| {
-        b.iter_batched(new_table, |table| black_box(table.into_hash_map()), BatchSize::SmallInput)
+        b.iter_batched(
+            new_table,
+            |table| black_box(table.into_hash_map()),
+            BatchSize::SmallInput,
+        )
     });
     group.bench_function("EnumTable::try_from_hash_map", |b| {
         b.iter_batched(
             new_hash_map,
-            |map| black_box(EnumTable::<Letter, &'static str, LEN>::try_from_hash_map(map)),
+            |map| {
+                black_box(EnumTable::<Letter, &'static str, LEN>::try_from_hash_map(
+                    map,
+                ))
+            },
             BatchSize::SmallInput,
         )
     });

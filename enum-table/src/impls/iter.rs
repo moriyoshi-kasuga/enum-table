@@ -99,7 +99,7 @@ mod tests {
         Blue,
     }
 
-    const TABLES: EnumTable<Color, &'static str, { Color::VARIANTS.len() }> =
+    const TABLES: EnumTable<Color, &'static str, { Color::COUNT }> =
         crate::et!(Color, &'static str, |color| match color {
             Color::Red => "Red",
             Color::Green => "Green",

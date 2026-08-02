@@ -1,14 +1,7 @@
-/// A macro to create an `EnumTable` for a given enumeration and value type.
+/// Builds an `EnumTable` for `$variant` and `$value` in a `const` context, by matching
+/// each variant to a value in the given closure body.
 ///
-/// # Arguments
-///
-/// * `$variant` - The enumeration type that implements the `Enumerable` trait.
-/// * `$value` - The type of values to be associated with each enumeration variant.
-/// * `$count` - The number of variants in the enumeration.
-/// * `$variable` - The variable name to use in the closure for each variant.
-/// * `$($tt:tt)*` - The closure that maps each variant to a value.
-///
-/// # Example
+/// # Examples
 ///
 /// ```rust
 /// use enum_table::{EnumTable, Enumerable, et};
@@ -20,7 +13,7 @@
 ///     C,
 /// }
 ///
-/// const TABLE: EnumTable<Test, &'static str, { Test::VARIANTS.len() }> =
+/// const TABLE: EnumTable<Test, &'static str, { Test::COUNT }> =
 ///     et!(Test, &'static str, |t| match t {
 ///         Test::A => "A",
 ///         Test::B => "B",
@@ -33,9 +26,13 @@
 /// ```
 #[macro_export]
 macro_rules! et {
-    ($variant:ty, $value:ty, $COUNT:block, |$variable:ident| $($tt:tt)*) => {
+    ($variant:ty, $value:ty, |$variable:ident| $($tt:tt)*) => {
         {
-            let mut builder = $crate::builder::EnumTableBuilder::<$variant, $value, $COUNT>::new();
+            let mut builder = $crate::builder::EnumTableBuilder::<
+                $variant,
+                $value,
+                { <$variant as $crate::Enumerable>::COUNT },
+            >::new();
 
             let mut i = 0;
             while i < builder.capacity() {
@@ -49,9 +46,6 @@ macro_rules! et {
 
             unsafe { builder.build_to_unchecked() }
         }
-    };
-    ($variant:ty, $value:ty, |$variable:ident| $($tt:tt)*) => {
-        $crate::et!($variant, $value, { <$variant as $crate::Enumerable>::VARIANTS.len() }, |$variable| $($tt)*)
     };
 }
 
@@ -68,7 +62,7 @@ mod tests {
             C,
         }
 
-        const TABLE: EnumTable<Test, &'static str, { Test::VARIANTS.len() }> =
+        const TABLE: EnumTable<Test, &'static str, { Test::COUNT }> =
             et!(Test, &'static str, |t| match t {
                 Test::A => "A",
                 Test::B => "B",

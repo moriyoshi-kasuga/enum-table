@@ -29,6 +29,15 @@ jobs:
       - run: cargo hack clippy --package enum-table --feature-powerset --no-dev-deps -- -D warnings
       - run: cargo clippy --workspace --all-features -- -D warnings
 
+  build:
+    name: Build (feature powerset, no dev-deps)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@cargo-hack
+      - run: cargo hack build --package enum-table --feature-powerset
+
   test:
     name: Test (feature powerset)
     runs-on: ubuntu-latest
@@ -37,9 +46,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@cargo-hack
       - run: cargo hack test --package enum-table --feature-powerset
-        # note: dev-dependencies pull in std/derive/serde regardless of the
-        # feature flags under test, so this exercises the test *code* against
-        # every combination without truly isolating the library build.
 
   miri:
     name: Miri

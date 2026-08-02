@@ -95,14 +95,14 @@ mod tests {
         Blue,
     }
 
-    const TABLES: EnumTable<Color, &'static str, { Color::VARIANTS.len() }> =
+    const TABLES: EnumTable<Color, &'static str, { Color::COUNT }> =
         crate::et!(Color, &'static str, |color| match color {
             Color::Red => "Red",
             Color::Green => "Green",
             Color::Blue => "Blue",
         });
 
-    const ANOTHER_TABLES: EnumTable<Color, &'static str, { Color::VARIANTS.len() }> =
+    const ANOTHER_TABLES: EnumTable<Color, &'static str, { Color::COUNT }> =
         crate::et!(Color, &'static str, |color| match color {
             Color::Red => "Red",
             Color::Green => "Green",
@@ -138,8 +138,7 @@ mod tests {
 
     #[test]
     fn default_impl() {
-        let default_table: EnumTable<Color, &'static str, { Color::VARIANTS.len() }> =
-            EnumTable::default();
+        let default_table: EnumTable<Color, &'static str, { Color::COUNT }> = EnumTable::default();
         assert_eq!(default_table.get(&Color::Red), &"");
         assert_eq!(default_table.get(&Color::Green), &"");
         assert_eq!(default_table.get(&Color::Blue), &"");

@@ -2,6 +2,9 @@ mod iter;
 
 mod core;
 
+#[cfg(feature = "alloc")]
+mod btree;
+
 #[cfg(feature = "std")]
 mod map;
 

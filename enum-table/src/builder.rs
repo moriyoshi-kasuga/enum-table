@@ -3,25 +3,17 @@ use core::mem::MaybeUninit;
 
 use crate::{EnumTable, Enumerable};
 
-/// A builder for creating an `EnumTable` with a specified number of elements.
+/// Incrementally builds an `EnumTable` by pushing one value per variant.
 ///
-/// `EnumTableBuilder` allows for the incremental construction of an `EnumTable`
-/// by pushing elements one by one and then building the final table.
-///
-/// # Note
-/// The builder is expected to be filled completely before building the table.
-/// If the builder is not filled completely, the `build_unchecked` and `build_to_unchecked` methods
-/// will trigger a debug assertion failure.
-/// For a clearer and more concise approach, consider using the [`crate::et`] macro.
+/// Prefer the [`crate::et`] macro over using this type directly.
 ///
 /// Dropping a builder before it is fully pushed leaks its already-pushed
-/// elements instead of running their destructors. This is intentional:
-/// `build_unchecked`/`build_to_unchecked` are `const fn`, and Rust cannot
-/// evaluate a destructor at compile time, so `EnumTableBuilder` cannot
-/// implement `Drop` without losing `const`-context support, which is the
-/// entire point of this type.
+/// elements instead of running their destructors: `build_unchecked` and
+/// `build_to_unchecked` are `const fn`, and a `const fn` cannot run a `Drop`
+/// implementation, so `EnumTableBuilder` cannot implement `Drop` without
+/// losing const-context support.
 ///
-/// # Example
+/// # Examples
 /// ```rust
 /// use enum_table::{EnumTable, Enumerable, builder::EnumTableBuilder,};
 ///
@@ -32,8 +24,8 @@ use crate::{EnumTable, Enumerable};
 ///     C,
 /// }
 ///
-/// const TABLE: EnumTable<Test, &'static str, { Test::VARIANTS.len() }> = {
-///    let mut builder = EnumTableBuilder::<Test, &'static str, { Test::VARIANTS.len() }>::new();
+/// const TABLE: EnumTable<Test, &'static str, { Test::COUNT }> = {
+///    let mut builder = EnumTableBuilder::<Test, &'static str, { Test::COUNT }>::new();
 ///    unsafe {
 ///        builder.push_unchecked(&Test::A, "A");
 ///        builder.push_unchecked(&Test::B, "B");
@@ -42,7 +34,6 @@ use crate::{EnumTable, Enumerable};
 ///    }
 /// };
 ///
-/// // Access values associated with enum variants
 /// assert_eq!(TABLE.get(&Test::A), &"A");
 /// assert_eq!(TABLE.get(&Test::B), &"B");
 /// assert_eq!(TABLE.get(&Test::C), &"C");
@@ -56,11 +47,7 @@ pub struct EnumTableBuilder<K: Enumerable, V, const N: usize> {
 }
 
 impl<K: Enumerable, V, const N: usize> EnumTableBuilder<K, V, N> {
-    /// Creates a new `EnumTableBuilder` with an uninitialized table.
-    ///
-    /// # Returns
-    ///
-    /// A new instance of `EnumTableBuilder`.
+    /// Creates a new, empty `EnumTableBuilder`.
     pub const fn new() -> Self {
         Self {
             idx: 0,
@@ -71,19 +58,13 @@ impl<K: Enumerable, V, const N: usize> EnumTableBuilder<K, V, N> {
         }
     }
 
-    /// Pushes a new element into the builder without safety checks.
+    /// Pushes `value` for `variant` without checking order, duplicates, or capacity.
     ///
     /// # Safety
     ///
-    /// * The caller must ensure that elements are pushed in the correct order
-    ///   (sorted by discriminant).
-    /// * The caller must ensure that no variant is pushed more than once.
-    /// * The caller must ensure that the builder doesn't exceed capacity N.
-    ///
-    /// # Arguments
-    ///
-    /// * `variant` - A reference to an enumeration variant.
-    /// * `value` - The value to associate with the variant.
+    /// The caller must ensure that elements are pushed in ascending discriminant
+    /// order, that no variant is pushed more than once, and that the builder
+    /// does not exceed capacity `N`.
     pub const unsafe fn push_unchecked(&mut self, _variant: &K, value: V) {
         debug_assert!(self.idx < N, "EnumTableBuilder: too many elements pushed");
 
@@ -107,16 +88,12 @@ impl<K: Enumerable, V, const N: usize> EnumTableBuilder<K, V, N> {
         self.idx += 1;
     }
 
-    /// Builds the table from the pushed elements without checking if all variants are filled.
+    /// Builds the array of values from the pushed elements.
     ///
     /// # Safety
     ///
-    /// The caller must ensure that all N variants have been pushed to the builder.
-    /// If this is not the case, the resulting table will contain uninitialized memory.
-    ///
-    /// # Returns
-    ///
-    /// An array of values corresponding to each enum variant.
+    /// The caller must ensure that all `N` variants have been pushed to the
+    /// builder; otherwise the resulting array contains uninitialized memory.
     pub const unsafe fn build_unchecked(self) -> [V; N] {
         #[cfg(debug_assertions)]
         assert!(
@@ -124,7 +101,7 @@ impl<K: Enumerable, V, const N: usize> EnumTableBuilder<K, V, N> {
             "EnumTableBuilder: not all elements have been pushed"
         );
 
-        // SAFETY: Caller guarantees that the table is filled.
+        // SAFETY: caller guarantees all N variants were pushed.
         let table = unsafe { self.table.assume_init() };
 
         #[cfg(debug_assertions)]
@@ -139,15 +116,11 @@ impl<K: Enumerable, V, const N: usize> EnumTableBuilder<K, V, N> {
         table
     }
 
-    /// Builds the `EnumTable` from the pushed elements without checking if all variants are filled.
+    /// Builds the `EnumTable` from the pushed elements.
     ///
     /// # Safety
     ///
-    /// The caller must ensure that all N variants have been pushed to the builder.
-    ///
-    /// # Returns
-    ///
-    /// An `EnumTable` containing the elements pushed into the builder.
+    /// The caller must ensure that all `N` variants have been pushed to the builder.
     pub const unsafe fn build_to_unchecked(self) -> EnumTable<K, V, N> {
         EnumTable::new(unsafe { self.build_unchecked() })
     }
@@ -162,11 +135,7 @@ impl<K: Enumerable, V, const N: usize> EnumTableBuilder<K, V, N> {
         N
     }
 
-    /// Returns `true` if the builder has no elements pushed yet.
-    ///
-    /// # Returns
-    ///
-    /// `true` if no elements have been pushed, `false` otherwise.
+    /// Returns `true` if no elements have been pushed yet.
     pub const fn is_empty(&self) -> bool {
         self.idx == 0
     }
@@ -191,9 +160,8 @@ mod tests {
             C,
         }
 
-        const TABLE: EnumTable<Test, &'static str, { Test::VARIANTS.len() }> = {
-            let mut builder =
-                EnumTableBuilder::<Test, &'static str, { Test::VARIANTS.len() }>::new();
+        const TABLE: EnumTable<Test, &'static str, { Test::COUNT }> = {
+            let mut builder = EnumTableBuilder::<Test, &'static str, { Test::COUNT }>::new();
 
             let mut i = 0;
             while i < builder.capacity() {
