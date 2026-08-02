@@ -1,4 +1,4 @@
-use crate::Enumable;
+use crate::Enumerable;
 
 /// Compares the raw bytes of `left` and `right` for equality.
 ///
@@ -57,7 +57,7 @@ const unsafe fn bytes_lt<T>(left: &T, right: &T) -> bool {
 ///
 /// # Safety
 ///
-/// `T` must have no padding bytes (see [`crate::Enumable`]'s safety contract).
+/// `T` must have no padding bytes (see [`crate::Enumerable`]'s safety contract).
 #[doc(hidden)]
 pub const unsafe fn sort_variants<const N: usize, T: Copy>(mut arr: [T; N]) -> [T; N] {
     let mut i = 1;
@@ -80,7 +80,7 @@ pub const unsafe fn sort_variants<const N: usize, T: Copy>(mut arr: [T; N]) -> [
 ///
 /// # Safety
 ///
-/// `T` must have no padding bytes (see [`crate::Enumable`]'s safety contract).
+/// `T` must have no padding bytes (see [`crate::Enumerable`]'s safety contract).
 #[doc(hidden)]
 pub const unsafe fn variant_index_of<T>(variant: &T, variants: &[T]) -> usize {
     let mut i = 0;
@@ -92,19 +92,19 @@ pub const unsafe fn variant_index_of<T>(variant: &T, variants: &[T]) -> usize {
         i += 1;
     }
     panic!(
-        "enum-table: variant not found in VARIANTS array. This is a bug in the Enumable implementation."
+        "enum-table: variant not found in VARIANTS array. This is a bug in the Enumerable implementation."
     )
 }
 
 /// Checks that `arr` is sorted by the unsigned bit-pattern of its elements.
 #[cfg(debug_assertions)]
-pub(crate) const fn is_sorted<T: Enumable>(arr: &[T]) -> bool {
+pub(crate) const fn is_sorted<T: Enumerable>(arr: &[T]) -> bool {
     if arr.is_empty() {
         return true;
     }
     let mut i = 0;
     while i < arr.len() - 1 {
-        // SAFETY: `T: Enumable`'s safety contract guarantees no padding bytes.
+        // SAFETY: `T: Enumerable`'s safety contract guarantees no padding bytes.
         if !unsafe { bytes_lt(&arr[i], &arr[i + 1]) } {
             return false;
         }
@@ -116,16 +116,16 @@ pub(crate) const fn is_sorted<T: Enumable>(arr: &[T]) -> bool {
 /// Binary search for a variant's index in the sorted `VARIANTS` array.
 ///
 /// This is a `const fn` used by:
-/// - The default `Enumable::variant_index` implementation (O(log N) fallback).
+/// - The default `Enumerable::variant_index` implementation (O(log N) fallback).
 /// - The `get_const`, `get_mut_const`, `set_const`, and `remove_const` methods.
-pub(crate) const fn binary_search_index<T: Enumable>(variant: &T) -> usize {
+pub(crate) const fn binary_search_index<T: Enumerable>(variant: &T) -> usize {
     let variants = T::VARIANTS;
     let mut low = 0;
     let mut high = variants.len();
 
     while low < high {
         let mid = low + (high - low) / 2;
-        // SAFETY: `T: Enumable`'s safety contract guarantees no padding bytes.
+        // SAFETY: `T: Enumerable`'s safety contract guarantees no padding bytes.
         if unsafe { bytes_lt(&variants[mid], variant) } {
             low = mid + 1;
         } else {
@@ -135,7 +135,7 @@ pub(crate) const fn binary_search_index<T: Enumable>(variant: &T) -> usize {
 
     debug_assert!(
         low < variants.len() && unsafe { bytes_eq(&variants[low], variant) },
-        "enum-table: variant not found in VARIANTS via binary search. This is a bug in the Enumable implementation."
+        "enum-table: variant not found in VARIANTS via binary search. This is a bug in the Enumerable implementation."
     );
 
     low
@@ -183,7 +183,7 @@ mod tests {
     use super::*;
 
     #[repr(u8)]
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, crate::Enumable)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, crate::Enumerable)]
     enum Color {
         Red = 33,
         Green = 11,
@@ -191,14 +191,14 @@ mod tests {
     }
 
     #[repr(i8)]
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, crate::Enumable)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, crate::Enumerable)]
     enum Signed {
         Neg = -1,
         Zero = 0,
         Pos = 1,
     }
 
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, crate::Enumable)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, crate::Enumerable)]
     enum Zst {
         Only,
     }

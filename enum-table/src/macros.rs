@@ -2,7 +2,7 @@
 ///
 /// # Arguments
 ///
-/// * `$variant` - The enumeration type that implements the `Enumable` trait.
+/// * `$variant` - The enumeration type that implements the `Enumerable` trait.
 /// * `$value` - The type of values to be associated with each enumeration variant.
 /// * `$count` - The number of variants in the enumeration.
 /// * `$variable` - The variable name to use in the closure for each variant.
@@ -11,9 +11,9 @@
 /// # Example
 ///
 /// ```rust
-/// use enum_table::{EnumTable, Enumable, et};
+/// use enum_table::{EnumTable, Enumerable, et};
 ///
-/// #[derive(Enumable, Copy, Clone)]
+/// #[derive(Enumerable, Copy, Clone)]
 /// enum Test {
 ///     A,
 ///     B,
@@ -39,7 +39,7 @@ macro_rules! et {
 
             let mut i = 0;
             while i < builder.capacity() {
-                let $variable = &<$variant as $crate::Enumable>::VARIANTS[i];
+                let $variable = &<$variant as $crate::Enumerable>::VARIANTS[i];
                 let value = $($tt)*;
                 unsafe {
                     builder.push_unchecked($variable, value);
@@ -51,17 +51,17 @@ macro_rules! et {
         }
     };
     ($variant:ty, $value:ty, |$variable:ident| $($tt:tt)*) => {
-        $crate::et!($variant, $value, { <$variant as $crate::Enumable>::VARIANTS.len() }, |$variable| $($tt)*)
+        $crate::et!($variant, $value, { <$variant as $crate::Enumerable>::VARIANTS.len() }, |$variable| $($tt)*)
     };
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{EnumTable, Enumable};
+    use crate::{EnumTable, Enumerable};
 
     #[test]
     fn et_macro() {
-        #[derive(Clone, Copy, Enumable)]
+        #[derive(Clone, Copy, Enumerable)]
         enum Test {
             A,
             B,

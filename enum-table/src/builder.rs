@@ -1,7 +1,7 @@
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 
-use crate::{EnumTable, Enumable};
+use crate::{EnumTable, Enumerable};
 
 /// A builder for creating an `EnumTable` with a specified number of elements.
 ///
@@ -23,9 +23,9 @@ use crate::{EnumTable, Enumable};
 ///
 /// # Example
 /// ```rust
-/// use enum_table::{EnumTable, Enumable, builder::EnumTableBuilder,};
+/// use enum_table::{EnumTable, Enumerable, builder::EnumTableBuilder,};
 ///
-/// #[derive(Debug, Copy, Clone, Enumable)]
+/// #[derive(Debug, Copy, Clone, Enumerable)]
 /// enum Test {
 ///     A,
 ///     B,
@@ -47,7 +47,7 @@ use crate::{EnumTable, Enumable};
 /// assert_eq!(TABLE.get(&Test::B), &"B");
 /// assert_eq!(TABLE.get(&Test::C), &"C");
 /// ```
-pub struct EnumTableBuilder<K: Enumable, V, const N: usize> {
+pub struct EnumTableBuilder<K: Enumerable, V, const N: usize> {
     idx: usize,
     table: MaybeUninit<[V; N]>,
     #[cfg(debug_assertions)]
@@ -55,7 +55,7 @@ pub struct EnumTableBuilder<K: Enumable, V, const N: usize> {
     _phantom: PhantomData<K>,
 }
 
-impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
+impl<K: Enumerable, V, const N: usize> EnumTableBuilder<K, V, N> {
     /// Creates a new `EnumTableBuilder` with an uninitialized table.
     ///
     /// # Returns
@@ -172,7 +172,7 @@ impl<K: Enumable, V, const N: usize> EnumTableBuilder<K, V, N> {
     }
 }
 
-impl<K: Enumable, V, const N: usize> Default for EnumTableBuilder<K, V, N> {
+impl<K: Enumerable, V, const N: usize> Default for EnumTableBuilder<K, V, N> {
     fn default() -> Self {
         Self::new()
     }
@@ -184,7 +184,7 @@ mod tests {
 
     #[test]
     fn builder() {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Enumable)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Enumerable)]
         enum Test {
             A,
             B,

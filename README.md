@@ -63,13 +63,13 @@ enum-table = "3.0"
 
 *Requires Rust 1.85 or later.*
 
-## The `Enumable` Trait
+## The `Enumerable` Trait
 
-The core of the library is the `Enumable` trait. It provides the necessary
+The core of the library is the `Enumerable` trait. It provides the necessary
 information about an enum—its variants—to the `EnumTable`.
 
 ```rust,ignore
-pub unsafe trait Enumable: Copy + 'static {
+pub unsafe trait Enumerable: Copy + 'static {
     const VARIANTS: &'static [Self];
 
     // Has a default impl: O(1) when derived, O(log N) fallback otherwise.
@@ -77,31 +77,31 @@ pub unsafe trait Enumable: Copy + 'static {
 }
 ```
 
-`Enumable` is an `unsafe trait`: implementors must guarantee that `VARIANTS`
+`Enumerable` is an `unsafe trait`: implementors must guarantee that `VARIANTS`
 lists every variant of `Self` exactly once, sorted in ascending order by the
 **unsigned bit-pattern** of its in-memory representation, and that `Self` has
-no padding bytes. See the [`Enumable` trait documentation][enumable-docs] for
+no padding bytes. See the [`Enumerable` trait documentation][enumerable-docs] for
 the full safety contract, including how signed discriminants sort.
 
-**It is strongly recommended to use the derive macro `#[derive(Enumable)]`**,
+**It is strongly recommended to use the derive macro `#[derive(Enumerable)]`**,
 which generates a correct `unsafe impl` for you: a sorted `VARIANTS` array and
 an O(1) `variant_index()` using compile-time-computed constants, guaranteeing
 both correctness and optimal performance without you writing any `unsafe`
 code yourself.
 
-[enumable-docs]: https://docs.rs/enum-table/latest/enum_table/trait.Enumable.html
+[enumerable-docs]: https://docs.rs/enum-table/latest/enum_table/trait.Enumerable.html
 
 ### Safety and Memory Layout
 
-`#[derive(Enumable)]` only supports field-less (C-like) enums, which never
+`#[derive(Enumerable)]` only supports field-less (C-like) enums, which never
 have padding bytes regardless of `#[repr]`. Using a primitive representation
 (e.g., `#[repr(u8)]`) is still recommended for a stable, minimal-size layout,
 but it is not required for soundness.
 
 ```rust
-use enum_table::Enumable;
+use enum_table::Enumerable;
 
-#[derive(Enumable, Copy, Clone)]
+#[derive(Enumerable, Copy, Clone)]
 #[repr(u8)] // <--- Recommended, but not required for soundness.
 enum MyEnum {
     A,
@@ -114,9 +114,9 @@ enum MyEnum {
 ### Basic Usage
 
 ```rust
-use enum_table::{EnumTable, Enumable};
+use enum_table::{EnumTable, Enumerable};
 
-#[derive(Enumable, Copy, Clone)] // Automatically implements the Enumable trait
+#[derive(Enumerable, Copy, Clone)] // Automatically implements the Enumerable trait
 #[repr(u8)] // Recommended: specifies the discriminant size
 enum Test {
     A = 100, // You can specify custom discriminants
@@ -145,8 +145,8 @@ You can create `EnumTable` instances at compile time with zero runtime overhead 
 This is ideal for static lookup tables.
 
 ```rust
-use enum_table::{EnumTable, Enumable};
-#[derive(Enumable, Copy, Clone)]
+use enum_table::{EnumTable, Enumerable};
+#[derive(Enumerable, Copy, Clone)]
 #[repr(u8)] 
 enum Test {
     A = 100,
@@ -178,10 +178,10 @@ serde_json = "1.0"
 ```
 
 ```rust
-use enum_table::{EnumTable, Enumable};
+use enum_table::{EnumTable, Enumerable};
 use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Enumable, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Enumerable, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 enum Status {
     Active,
     Inactive,
@@ -214,9 +214,9 @@ The example below shows `try_new_with_fn`,
 which is useful when each value is generated individually and might fail.
 
 ```rust
-use enum_table::{EnumTable, Enumable};
+use enum_table::{EnumTable, Enumerable};
 
-#[derive(Enumable, Copy, Clone, Debug, PartialEq)]
+#[derive(Enumerable, Copy, Clone, Debug, PartialEq)]
 enum Color {
     Red,
     Green,
@@ -286,8 +286,8 @@ The `EnumTable` can be converted to and from other standard collections.
   Requires the enum key to implement `Ord`.
 
 ```rust
-use enum_table::{EnumTable, Enumable};
-#[derive(Enumable, Debug, PartialEq, Eq, Hash, Copy, Clone)] enum Color { Red, Green, Blue }
+use enum_table::{EnumTable, Enumerable};
+#[derive(Enumerable, Debug, PartialEq, Eq, Hash, Copy, Clone)] enum Color { Red, Green, Blue }
 let table = EnumTable::<Color, &'static str, 3>::new_with_fn(|c| match c {
     Color::Red => "red", Color::Green => "green", Color::Blue => "blue",
 });
@@ -308,9 +308,9 @@ assert!(vec.contains(&(Color::Red, "red")));
   Returns `None` if the map does not contain exactly one entry for each variant.
 
 ```rust
-use enum_table::{EnumTable, Enumable};
+use enum_table::{EnumTable, Enumerable};
 use std::collections::HashMap;
-#[derive(Enumable, Debug, PartialEq, Eq, Hash, Copy, Clone)] enum Color { Red, Green, Blue }
+#[derive(Enumerable, Debug, PartialEq, Eq, Hash, Copy, Clone)] enum Color { Red, Green, Blue }
 
 // Example: Create from a HashMap
 let mut map = HashMap::new();
@@ -341,13 +341,13 @@ The `enum-table` library is designed for performance:
 ## Feature Flags
 
 - **default**: Enables `std` and `derive`.
-- **derive**: Enables the `Enumable` derive macro for automatic trait implementation.
+- **derive**: Enables the `Enumerable` derive macro for automatic trait implementation.
 - **serde**: Enables serialization and deserialization support using Serde. Implies `alloc`.
 - **std**: Enables `std`-dependent APIs, such as conversions to/from `HashMap`. Implies `alloc`.
 - **alloc**: Enables `alloc`-dependent APIs, such as conversions to/from `Vec`, without requiring the rest of `std`.
 
 Disabling all of the above (`default-features = false`) builds `enum-table` as `#![no_std]`
-with no heap-allocation dependency at all, retaining the core `EnumTable`/`Enumable` API.
+with no heap-allocation dependency at all, retaining the core `EnumTable`/`Enumerable` API.
 
 ## License
 

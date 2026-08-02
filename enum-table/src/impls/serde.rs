@@ -1,11 +1,11 @@
 extern crate alloc;
 
-use crate::{EnumTable, Enumable};
+use crate::{EnumTable, Enumerable};
 use alloc::format;
 
 impl<K, V, const N: usize> serde::Serialize for EnumTable<K, V, N>
 where
-    K: Enumable + serde::Serialize,
+    K: Enumerable + serde::Serialize,
     V: serde::Serialize,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -23,7 +23,7 @@ where
 
 impl<'de, K, V, const N: usize> serde::Deserialize<'de> for EnumTable<K, V, N>
 where
-    K: Enumable + serde::Deserialize<'de> + core::fmt::Debug,
+    K: Enumerable + serde::Deserialize<'de> + core::fmt::Debug,
     V: serde::Deserialize<'de>,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -39,7 +39,7 @@ where
 
         impl<'de, K, V, const N: usize> Visitor<'de> for EnumTableVisitor<K, V, N>
         where
-            K: Enumable + serde::Deserialize<'de> + core::fmt::Debug,
+            K: Enumerable + serde::Deserialize<'de> + core::fmt::Debug,
             V: serde::Deserialize<'de>,
         {
             type Value = EnumTable<K, V, N>;
@@ -93,7 +93,7 @@ where
 mod tests {
     use super::*;
 
-    #[derive(Debug, Clone, Copy, Enumable, serde::Serialize, serde::Deserialize)]
+    #[derive(Debug, Clone, Copy, Enumerable, serde::Serialize, serde::Deserialize)]
     enum Color {
         Red,
         Green,

@@ -10,7 +10,7 @@ pub extern crate self as enum_table;
 use core::marker::PhantomData;
 
 #[cfg(feature = "derive")]
-pub use enum_table_derive::Enumable;
+pub use enum_table_derive::Enumerable;
 
 pub mod builder;
 mod intrinsics;
@@ -32,7 +32,7 @@ mod macros;
 /// variants, sorted by the unsigned bit-pattern of their in-memory
 /// representation.
 ///
-/// **It is strongly recommended to use `#[derive(Enumable)]`**, which upholds
+/// **It is strongly recommended to use `#[derive(Enumerable)]`**, which upholds
 /// the safety contract below automatically.
 ///
 /// # Safety
@@ -54,10 +54,10 @@ mod macros;
 ///
 /// # Examples
 ///
-/// Manually implementing `Enumable` (prefer `#[derive(Enumable)]` when possible):
+/// Manually implementing `Enumerable` (prefer `#[derive(Enumerable)]` when possible):
 ///
 /// ```rust
-/// use enum_table::Enumable;
+/// use enum_table::Enumerable;
 ///
 /// #[derive(Copy, Clone)]
 /// #[repr(u8)]
@@ -69,18 +69,18 @@ mod macros;
 ///
 /// // SAFETY: `Test` is a field-less `#[repr(u8)]` enum (no padding bytes),
 /// // and `VARIANTS` lists every variant exactly once, sorted by discriminant.
-/// unsafe impl Enumable for Test {
+/// unsafe impl Enumerable for Test {
 ///     const VARIANTS: &'static [Self] = &[Test::A, Test::B, Test::C];
 /// }
 ///
 /// assert_eq!(Test::B.variant_index(), 1);
 /// ```
-pub unsafe trait Enumable: Copy + 'static {
+pub unsafe trait Enumerable: Copy + 'static {
     const VARIANTS: &'static [Self];
 
     /// Returns the index of this variant in the sorted `VARIANTS` array.
     ///
-    /// When derived via `#[derive(Enumable)]`, each arm returns a
+    /// When derived via `#[derive(Enumerable)]`, each arm returns a
     /// compile-time-computed constant, so this compiles to a single memory
     /// read (O(1)) for enums with dense, sequential discriminants, and to a
     /// compiler-generated comparison tree (comparable to O(log N)) for
@@ -117,19 +117,19 @@ pub unsafe trait Enumable: Copy + 'static {
 ///
 /// # Type Parameters
 ///
-/// * `K`: The enumeration type that implements the `Enumable` trait. This trait
+/// * `K`: The enumeration type that implements the `Enumerable` trait. This trait
 ///   ensures that the enum provides a static array of its variants and a count
 ///   of these variants.
 /// * `V`: The type of values to be associated with each enum variant.
 /// * `N`: The number of variants in the enum, which should match the length of
-///   the static array of variants provided by the `Enumable` trait.
+///   the static array of variants provided by the `Enumerable` trait.
 ///
 /// # Examples
 ///
 /// ```rust
-/// use enum_table::{EnumTable, Enumable};
+/// use enum_table::{EnumTable, Enumerable};
 ///
-/// #[derive(Enumable, Copy, Clone)]
+/// #[derive(Enumerable, Copy, Clone)]
 /// enum Color {
 ///     Red,
 ///     Green,
@@ -148,12 +148,12 @@ pub unsafe trait Enumable: Copy + 'static {
 /// assert_eq!(table.get(&Color::Green), &"Green");
 /// assert_eq!(table.get(&Color::Blue), &"Blue");
 /// ```
-pub struct EnumTable<K: Enumable, V, const N: usize> {
+pub struct EnumTable<K: Enumerable, V, const N: usize> {
     table: [V; N],
     _phantom: PhantomData<K>,
 }
 
-impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
+impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
     /// Creates a new `EnumTable` with the given table of variants and values.
     /// Typically, you would use the [`crate::et`] macro or [`crate::builder::EnumTableBuilder`] to create an `EnumTable`.
     pub(crate) const fn new(table: [V; N]) -> Self {
@@ -230,7 +230,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
 
     /// Returns a reference to the value associated with the given enumeration variant.
     ///
-    /// Uses O(1) lookup via [`Enumable::variant_index`].
+    /// Uses O(1) lookup via [`Enumerable::variant_index`].
     ///
     /// # Arguments
     ///
@@ -241,7 +241,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
 
     /// Returns a mutable reference to the value associated with the given enumeration variant.
     ///
-    /// Uses O(1) lookup via [`Enumable::variant_index`].
+    /// Uses O(1) lookup via [`Enumerable::variant_index`].
     ///
     /// # Arguments
     ///
@@ -252,7 +252,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
 
     /// Sets the value associated with the given enumeration variant.
     ///
-    /// Uses O(1) lookup via [`Enumable::variant_index`].
+    /// Uses O(1) lookup via [`Enumerable::variant_index`].
     ///
     /// # Arguments
     ///
@@ -351,9 +351,9 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// # Examples
     ///
     /// ```rust
-    /// use enum_table::{EnumTable, Enumable};
+    /// use enum_table::{EnumTable, Enumerable};
     ///
-    /// #[derive(Enumable, Copy, Clone)]
+    /// #[derive(Enumerable, Copy, Clone)]
     /// enum Stat {
     ///     Hp,
     ///     Attack,
@@ -401,9 +401,9 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// # Examples
     ///
     /// ```rust
-    /// use enum_table::{EnumTable, Enumable};
+    /// use enum_table::{EnumTable, Enumerable};
     ///
-    /// #[derive(Enumable, Copy, Clone)]
+    /// #[derive(Enumerable, Copy, Clone)]
     /// enum Size {
     ///     Small,
     ///     Medium,
@@ -452,9 +452,9 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// # Examples
     ///
     /// ```rust
-    /// use enum_table::{EnumTable, Enumable};
+    /// use enum_table::{EnumTable, Enumerable};
     ///
-    /// #[derive(Enumable, Copy, Clone)]
+    /// #[derive(Enumerable, Copy, Clone)]
     /// enum Level {
     ///     Low,
     ///     Medium,
@@ -489,7 +489,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     }
 }
 
-impl<K: Enumable, V, const N: usize> EnumTable<K, Option<V>, N> {
+impl<K: Enumerable, V, const N: usize> EnumTable<K, Option<V>, N> {
     /// Creates a new `EnumTable` with `None` values for each variant.
     pub const fn new_fill_with_none() -> Self {
         Self::new([const { None }; N])
@@ -505,7 +505,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, Option<V>, N> {
     /// Removes and returns the value associated with the given enumeration variant,
     /// leaving `None` in its place.
     ///
-    /// Uses O(1) lookup via [`Enumable::variant_index`].
+    /// Uses O(1) lookup via [`Enumerable::variant_index`].
     ///
     /// # Arguments
     ///
@@ -537,7 +537,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, Option<V>, N> {
     }
 }
 
-impl<K: Enumable, V: Copy, const N: usize> EnumTable<K, V, N> {
+impl<K: Enumerable, V: Copy, const N: usize> EnumTable<K, V, N> {
     /// Creates a new `EnumTable` with the same copied value for each variant.
     ///
     /// This method initializes the table with the same value for each
@@ -550,9 +550,9 @@ impl<K: Enumable, V: Copy, const N: usize> EnumTable<K, V, N> {
     /// # Examples
     ///
     /// ```rust
-    /// use enum_table::{EnumTable, Enumable};
+    /// use enum_table::{EnumTable, Enumerable};
     ///
-    /// #[derive(Enumable, Copy, Clone)]
+    /// #[derive(Enumerable, Copy, Clone)]
     /// enum Status {
     ///     Active,
     ///     Inactive,
@@ -570,7 +570,7 @@ impl<K: Enumable, V: Copy, const N: usize> EnumTable<K, V, N> {
     }
 }
 
-impl<K: Enumable, V: Default, const N: usize> EnumTable<K, V, N> {
+impl<K: Enumerable, V: Default, const N: usize> EnumTable<K, V, N> {
     /// Creates a new `EnumTable` with default values for each variant.
     ///
     /// This method initializes the table with the default value of type `V` for each
@@ -589,7 +589,7 @@ impl<K: Enumable, V: Default, const N: usize> EnumTable<K, V, N> {
 mod tests {
     use super::*;
 
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Enumable)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Enumerable)]
     enum Color {
         Red = 33,
         Green = 11,
@@ -844,7 +844,7 @@ mod tests {
 
     macro_rules! run_variants_test {
         ($($variant:ident),+) => {{
-            #[derive(Debug, Clone, Copy, PartialEq, Eq, Enumable)]
+            #[derive(Debug, Clone, Copy, PartialEq, Eq, Enumerable)]
             #[repr(u8)]
             enum Test {
                 $($variant,)*
@@ -877,7 +877,7 @@ mod tests {
         assert_eq!(Color::Blue.variant_index(), 2);
     }
 
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Enumable)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Enumerable)]
     #[repr(i8)]
     enum Signed {
         Neg = -1,

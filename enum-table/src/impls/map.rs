@@ -3,9 +3,9 @@ use std::{
     hash::Hash,
 };
 
-use crate::{EnumTable, Enumable};
+use crate::{EnumTable, Enumerable};
 
-impl<K: Enumable + Eq + Hash, V, const N: usize> EnumTable<K, V, N> {
+impl<K: Enumerable + Eq + Hash, V, const N: usize> EnumTable<K, V, N> {
     /// Converts the `EnumTable` into a `HashMap`.
     ///
     /// This method consumes the `EnumTable` and creates a new `HashMap` with the same
@@ -14,10 +14,10 @@ impl<K: Enumable + Eq + Hash, V, const N: usize> EnumTable<K, V, N> {
     /// # Examples
     ///
     /// ```rust
-    /// use enum_table::{EnumTable, Enumable};
+    /// use enum_table::{EnumTable, Enumerable};
     /// use std::collections::HashMap;
     ///
-    /// #[derive(Enumable, Debug, PartialEq, Eq, Hash, Copy, Clone)]
+    /// #[derive(Enumerable, Debug, PartialEq, Eq, Hash, Copy, Clone)]
     /// enum Status {
     ///     Active,
     ///     Inactive,
@@ -52,10 +52,10 @@ impl<K: Enumable + Eq + Hash, V, const N: usize> EnumTable<K, V, N> {
     /// # Examples
     ///
     /// ```rust
-    /// use enum_table::{EnumTable, Enumable};
+    /// use enum_table::{EnumTable, Enumerable};
     /// use std::collections::HashMap;
     ///
-    /// #[derive(Enumable, Debug, PartialEq, Eq, Hash, Copy, Clone)]
+    /// #[derive(Enumerable, Debug, PartialEq, Eq, Hash, Copy, Clone)]
     /// enum Priority {
     ///     Low,
     ///     Medium,
@@ -76,10 +76,10 @@ impl<K: Enumable + Eq + Hash, V, const N: usize> EnumTable<K, V, N> {
     /// ```
     ///
     /// ```rust
-    /// # use enum_table::{EnumTable, Enumable};
+    /// # use enum_table::{EnumTable, Enumerable};
     /// # use std::collections::HashMap;
     /// #
-    /// # #[derive(Enumable, Debug, PartialEq, Eq, Hash, Copy, Clone)]
+    /// # #[derive(Enumerable, Debug, PartialEq, Eq, Hash, Copy, Clone)]
     /// # enum Priority {
     /// #     Low,
     /// #     Medium,
@@ -105,7 +105,7 @@ impl<K: Enumable + Eq + Hash, V, const N: usize> EnumTable<K, V, N> {
     }
 }
 
-impl<K: Enumable + Ord, V, const N: usize> EnumTable<K, V, N> {
+impl<K: Enumerable + Ord, V, const N: usize> EnumTable<K, V, N> {
     /// Converts the `EnumTable` into a `BTreeMap`.
     ///
     /// This method consumes the `EnumTable` and creates a new `BTreeMap` with the same
@@ -114,10 +114,10 @@ impl<K: Enumable + Ord, V, const N: usize> EnumTable<K, V, N> {
     /// # Examples
     ///
     /// ```rust
-    /// use enum_table::{EnumTable, Enumable};
+    /// use enum_table::{EnumTable, Enumerable};
     /// use std::collections::BTreeMap;
     ///
-    /// #[derive(Enumable, Debug, PartialEq, Eq, Ord, PartialOrd, Copy, Clone)]
+    /// #[derive(Enumerable, Debug, PartialEq, Eq, Ord, PartialOrd, Copy, Clone)]
     /// enum Level {
     ///     Beginner,
     ///     Intermediate,
@@ -152,10 +152,10 @@ impl<K: Enumable + Ord, V, const N: usize> EnumTable<K, V, N> {
     /// # Examples
     ///
     /// ```rust
-    /// use enum_table::{EnumTable, Enumable};
+    /// use enum_table::{EnumTable, Enumerable};
     /// use std::collections::BTreeMap;
     ///
-    /// #[derive(Enumable, Debug, PartialEq, Eq, Ord, PartialOrd, Copy, Clone)]
+    /// #[derive(Enumerable, Debug, PartialEq, Eq, Ord, PartialOrd, Copy, Clone)]
     /// enum Grade {
     ///     A,
     ///     B,
@@ -176,10 +176,10 @@ impl<K: Enumable + Ord, V, const N: usize> EnumTable<K, V, N> {
     /// ```
     ///
     /// ```rust
-    /// # use enum_table::{EnumTable, Enumable};
+    /// # use enum_table::{EnumTable, Enumerable};
     /// # use std::collections::BTreeMap;
     /// #
-    /// # #[derive(Enumable, Debug, PartialEq, Eq, Ord, PartialOrd, Copy, Clone)]
+    /// # #[derive(Enumerable, Debug, PartialEq, Eq, Ord, PartialOrd, Copy, Clone)]
     /// # enum Grade {
     /// #     A,
     /// #     B,
@@ -209,7 +209,7 @@ impl<K: Enumable + Ord, V, const N: usize> EnumTable<K, V, N> {
 mod tests {
     use super::*;
 
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Enumable, Ord, PartialOrd)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Enumerable, Ord, PartialOrd)]
     enum Color {
         Red,
         Green,

@@ -1,6 +1,6 @@
 extern crate alloc;
 
-use crate::{EnumTable, Enumable};
+use crate::{EnumTable, Enumerable};
 use alloc::vec::Vec;
 
 /// Error type for `EnumTable::try_from_vec`.
@@ -29,15 +29,15 @@ impl<K: core::fmt::Debug> core::fmt::Display for EnumTableFromVecError<K> {
 
 impl<K: core::fmt::Debug> core::error::Error for EnumTableFromVecError<K> {}
 
-impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
+impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
     /// Converts the `EnumTable` into a `Vec` of key-value pairs.
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use enum_table::{EnumTable, Enumable};
+    /// use enum_table::{EnumTable, Enumerable};
     ///
-    /// #[derive(Enumable, Debug, PartialEq, Copy, Clone)]
+    /// #[derive(Enumerable, Debug, PartialEq, Copy, Clone)]
     /// enum Color {
     ///     Red,
     ///     Green,
@@ -71,9 +71,9 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     /// # Examples
     ///
     /// ```rust
-    /// use enum_table::{EnumTable, Enumable};
+    /// use enum_table::{EnumTable, Enumerable};
     ///
-    /// #[derive(Enumable, Debug, PartialEq, Copy, Clone)]
+    /// #[derive(Enumerable, Debug, PartialEq, Copy, Clone)]
     /// enum Color {
     ///     Red,
     ///     Green,
@@ -119,7 +119,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
 mod tests {
     use super::*;
 
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Enumable)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Enumerable)]
     enum Color {
         Red = 33,
         Green = 11,

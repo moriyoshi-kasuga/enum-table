@@ -1,9 +1,9 @@
 use std::{collections::HashMap, hash::Hash, hint::black_box};
 
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
-use enum_table::{EnumTable, Enumable};
+use enum_table::{EnumTable, Enumerable};
 
-#[derive(Clone, Copy, Enumable, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Enumerable, Eq, PartialEq, Hash)]
 enum Letter {
     A,
     B,

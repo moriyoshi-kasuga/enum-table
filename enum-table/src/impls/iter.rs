@@ -1,6 +1,6 @@
-use crate::{EnumTable, Enumable};
+use crate::{EnumTable, Enumerable};
 
-impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
+impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
     /// Returns an iterator over references to the keys in the table.
     pub fn keys(&self) -> core::slice::Iter<'_, K> {
         K::VARIANTS.iter()
@@ -27,7 +27,7 @@ impl<K: Enumable, V, const N: usize> EnumTable<K, V, N> {
     }
 }
 
-impl<K: Enumable, V, const N: usize> IntoIterator for EnumTable<K, V, N> {
+impl<K: Enumerable, V, const N: usize> IntoIterator for EnumTable<K, V, N> {
     type Item = (K, V);
     type IntoIter = core::iter::Map<
         core::iter::Enumerate<core::array::IntoIter<V, N>>,
@@ -42,7 +42,7 @@ impl<K: Enumable, V, const N: usize> IntoIterator for EnumTable<K, V, N> {
     }
 }
 
-impl<'a, K: Enumable, V, const N: usize> IntoIterator for &'a EnumTable<K, V, N> {
+impl<'a, K: Enumerable, V, const N: usize> IntoIterator for &'a EnumTable<K, V, N> {
     type Item = (&'a K, &'a V);
     type IntoIter = core::iter::Map<
         core::iter::Enumerate<core::slice::Iter<'a, V>>,
@@ -57,7 +57,7 @@ impl<'a, K: Enumable, V, const N: usize> IntoIterator for &'a EnumTable<K, V, N>
     }
 }
 
-impl<K: Enumable, V, const N: usize> Extend<(K, V)> for EnumTable<K, V, N> {
+impl<K: Enumerable, V, const N: usize> Extend<(K, V)> for EnumTable<K, V, N> {
     fn extend<I: IntoIterator<Item = (K, V)>>(&mut self, iter: I) {
         for (k, v) in iter {
             self.set(&k, v);
@@ -65,7 +65,7 @@ impl<K: Enumable, V, const N: usize> Extend<(K, V)> for EnumTable<K, V, N> {
     }
 }
 
-impl<'a, K: Enumable, V: Copy, const N: usize> Extend<(&'a K, &'a V)> for EnumTable<K, V, N> {
+impl<'a, K: Enumerable, V: Copy, const N: usize> Extend<(&'a K, &'a V)> for EnumTable<K, V, N> {
     fn extend<I: IntoIterator<Item = (&'a K, &'a V)>>(&mut self, iter: I) {
         for (k, v) in iter {
             self.set(k, *v);
@@ -73,7 +73,7 @@ impl<'a, K: Enumable, V: Copy, const N: usize> Extend<(&'a K, &'a V)> for EnumTa
     }
 }
 
-impl<'a, K: Enumable, V, const N: usize> IntoIterator for &'a mut EnumTable<K, V, N> {
+impl<'a, K: Enumerable, V, const N: usize> IntoIterator for &'a mut EnumTable<K, V, N> {
     type Item = (&'a K, &'a mut V);
     type IntoIter = core::iter::Map<
         core::iter::Enumerate<core::slice::IterMut<'a, V>>,
@@ -92,7 +92,7 @@ impl<'a, K: Enumable, V, const N: usize> IntoIterator for &'a mut EnumTable<K, V
 mod tests {
     use super::*;
 
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Enumable)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Enumerable)]
     enum Color {
         Red,
         Green,
