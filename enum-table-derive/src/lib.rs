@@ -23,8 +23,11 @@ fn derive_enumerable_internal(input: DeriveInput) -> Result<TokenStream> {
         return Err(syn::Error::new_spanned(
             &input,
             "Enumerable cannot be derived for enums with `#[repr(align(N))]`: an alignment \
-             larger than the discriminant's natural size introduces trailing padding bytes, \
-             which would make this crate's byte-level comparisons read uninitialized memory",
+             larger than the discriminant's natural size can add trailing padding bytes \
+             that this crate's byte-level comparisons would read as uninitialized memory. \
+             Since checking whether a specific `N` actually does so would require \
+             duplicating the compiler's layout rules, `align(...)` is rejected \
+             unconditionally",
         ));
     }
 

@@ -1,10 +1,10 @@
 error: Enumerable cannot be derived for enums with `#[repr(align(N))]`: an alignment larger than the discriminant's natural size can add trailing padding bytes that this crate's byte-level comparisons would read as uninitialized memory. Since checking whether a specific `N` actually does so would require duplicating the compiler's layout rules, `align(...)` is rejected unconditionally
- --> tests/compile_fail/align.rs:3:1
-  |
-3 | / #[repr(u8, align(4))]
-4 | | #[derive(Clone, Copy, Enumerable)]
-5 | | enum Aligned {
-6 | |     A,
-7 | |     B,
-8 | | }
-  | |_^
+  --> tests/compile_fail/align_no_padding.rs:5:1
+   |
+ 5 | / #[repr(u8, align(1))]
+ 6 | | #[derive(Clone, Copy, Enumerable)]
+ 7 | | enum AlignedNoPadding {
+ 8 | |     A,
+ 9 | |     B,
+10 | | }
+   | |_^

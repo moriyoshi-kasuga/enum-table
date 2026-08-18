@@ -56,8 +56,14 @@ where
                 let mut count = 0;
 
                 while let Some((key, value)) = map.next_entry::<K, V>()? {
-                    slots[key.variant_index()] = Some(value);
                     count += 1;
+                    if count > N {
+                        return Err(serde::de::Error::invalid_length(
+                            count,
+                            &format!("expected {N} entries").as_str(),
+                        ));
+                    }
+                    slots[key.variant_index()] = Some(value);
                 }
 
                 if count != N {
@@ -69,10 +75,10 @@ where
 
                 let table = crate::intrinsics::try_collect_array(|i| {
                     slots[i].take().ok_or_else(|| {
-                        serde::de::Error::invalid_value(
-                            serde::de::Unexpected::Str(&format!("{:?}", K::VARIANTS[i])),
-                            &"all enum variants must be present",
-                        )
+                        serde::de::Error::custom(format_args!(
+                            "missing entry for variant {:?}",
+                            K::VARIANTS[i]
+                        ))
                     })
                 });
 

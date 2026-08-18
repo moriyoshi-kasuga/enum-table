@@ -808,6 +808,22 @@ mod tests {
     }
 
     #[test]
+    fn clear_to_none() {
+        let mut table =
+            EnumTable::<Color, Option<i32>, { Color::COUNT }>::new_with_fn(|color| match color {
+                Color::Red => Some(1),
+                Color::Green => Some(2),
+                Color::Blue => Some(3),
+            });
+
+        table.clear_to_none();
+
+        assert_eq!(table.get(&Color::Red), &None);
+        assert_eq!(table.get(&Color::Green), &None);
+        assert_eq!(table.get(&Color::Blue), &None);
+    }
+
+    #[test]
     fn as_slice() {
         let slice = TABLES.as_slice();
         assert_eq!(slice.len(), 3);
@@ -848,5 +864,21 @@ mod tests {
         assert_eq!(sum.get(&Color::Red), &-9);
         assert_eq!(sum.get(&Color::Green), &-18);
         assert_eq!(sum.get(&Color::Blue), &-27);
+    }
+
+    #[test]
+    fn clear_to_default() {
+        let mut table =
+            EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
+                Color::Red => 1,
+                Color::Green => 2,
+                Color::Blue => 3,
+            });
+
+        table.clear_to_default();
+
+        assert_eq!(table.get(&Color::Red), &0);
+        assert_eq!(table.get(&Color::Green), &0);
+        assert_eq!(table.get(&Color::Blue), &0);
     }
 }

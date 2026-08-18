@@ -76,9 +76,11 @@ is still recommended for a stable, minimal-size layout, but it is not required
 for soundness.
 
 The one exception is `#[repr(align(N))]`: an alignment larger than the
-discriminant's natural size pads the enum out to a multiple of `N`, which
-*does* introduce padding bytes. The derive macro rejects this at compile time
-rather than risk generating code that reads them.
+discriminant's natural size can add trailing padding bytes that this crate's
+byte-level comparisons would read as uninitialized memory. Since checking
+whether a specific `N` actually does so would require duplicating the
+compiler's layout rules, the derive macro rejects `#[repr(align(N))]`
+unconditionally at compile time.
 
 ```rust
 use enum_table::Enumerable;
