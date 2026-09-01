@@ -91,7 +91,6 @@ pub const unsafe fn variant_index_of<T>(variant: &T, variants: &[T]) -> usize {
 }
 
 /// Checks that `arr` is sorted by the unsigned bit-pattern of its elements.
-#[cfg(debug_assertions)]
 pub(crate) const fn is_sorted<T: Enumerable>(arr: &[T]) -> bool {
     if arr.is_empty() {
         return true;
@@ -262,28 +261,24 @@ mod tests {
 
     // --- is_sorted ---
 
-    #[cfg(debug_assertions)]
     #[test]
     fn is_sorted_sorted_slice() {
         let arr = [Color::Green, Color::Red, Color::Blue];
         assert!(is_sorted(&arr));
     }
 
-    #[cfg(debug_assertions)]
     #[test]
     fn is_sorted_unsorted_slice() {
         let arr = [Color::Red, Color::Green, Color::Blue];
         assert!(!is_sorted(&arr));
     }
 
-    #[cfg(debug_assertions)]
     #[test]
     fn is_sorted_single_element() {
         let arr = [Color::Red];
         assert!(is_sorted(&arr));
     }
 
-    #[cfg(debug_assertions)]
     #[test]
     fn is_sorted_empty() {
         let arr: [Color; 0] = [];

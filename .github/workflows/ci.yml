@@ -46,6 +46,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@cargo-hack
       - run: cargo hack test --package enum-table --feature-powerset
+      - run: cargo test --package enum-table-derive --all-features
 
   miri:
     name: Miri
@@ -55,4 +56,4 @@ jobs:
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: miri
-      - run: cargo miri test --workspace --all-features
+      - run: cargo miri test --package enum-table --all-features

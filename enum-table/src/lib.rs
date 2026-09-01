@@ -34,13 +34,23 @@ mod macros;
 /// # Safety
 ///
 /// Implementors must guarantee that `Self` has no padding bytes in its
-/// in-memory representation, and that `VARIANTS` contains every variant of
-/// `Self` exactly once, sorted in ascending order by the unsigned bit-pattern
-/// of that representation. For example, with `#[repr(i8)]`, `-1` sorts
-/// *after* `0` and `1`, since its bit pattern (`0xFF`) is numerically larger
-/// than theirs. Violating either guarantee is undefined behavior:
-/// [`EnumTable`] indexes into its backing array using these guarantees
-/// without re-validating each access.
+/// in-memory representation. Violating this is undefined behavior: this
+/// crate's byte-level comparisons ([`Self::variant_index`]'s default
+/// implementation, and every [`EnumTable`] constructor) read `Self` as raw
+/// bytes, and padding bytes may be uninitialized memory.
+///
+/// Implementors must also guarantee that `VARIANTS` contains every variant
+/// of `Self` exactly once, sorted in ascending order by the unsigned
+/// bit-pattern of that representation. For example, with `#[repr(i8)]`,
+/// `-1` sorts *after* `0` and `1`, since its bit pattern (`0xFF`) is
+/// numerically larger than theirs. Violating this guarantee is not
+/// undefined behavior on its own — [`EnumTable`] only ever indexes into its
+/// backing array with bounds checks — but it does silently produce wrong
+/// results: [`EnumTable::get`]/[`EnumTable::set`]/etc. return or mutate the
+/// value for the wrong variant. Every [`EnumTable`] constructor checks this
+/// guarantee at compile time (once per monomorphization of `K`) via a
+/// `const` assertion, so hand-written `unsafe impl`s that get this wrong
+/// fail to compile as soon as an `EnumTable<K, _, _>` is actually used.
 ///
 /// # Examples
 ///
@@ -118,6 +128,10 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
             assert!(
                 N == K::COUNT,
                 "EnumTable: N must equal K::COUNT. The const generic N does not match the number of enum variants."
+            );
+            assert!(
+                intrinsics::is_sorted(K::VARIANTS),
+                "EnumTable: K::VARIANTS is not sorted in ascending order by unsigned bit-pattern. This is required by the `Enumerable` trait's safety contract; use `#[derive(Enumerable)]` instead of a hand-written `unsafe impl` to avoid this."
             );
         }
 

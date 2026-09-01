@@ -42,7 +42,7 @@ pub struct EnumTableBuilder<K: Enumerable, V, const N: usize> {
     idx: usize,
     table: MaybeUninit<[V; N]>,
     #[cfg(debug_assertions)]
-    keys: MaybeUninit<[K; N]>,
+    last_key: Option<K>,
     _phantom: PhantomData<K>,
 }
 
@@ -53,7 +53,7 @@ impl<K: Enumerable, V, const N: usize> EnumTableBuilder<K, V, N> {
             idx: 0,
             table: MaybeUninit::uninit(),
             #[cfg(debug_assertions)]
-            keys: MaybeUninit::uninit(),
+            last_key: None,
             _phantom: PhantomData,
         }
     }
@@ -62,19 +62,23 @@ impl<K: Enumerable, V, const N: usize> EnumTableBuilder<K, V, N> {
     ///
     /// # Safety
     ///
-    /// The caller must ensure that elements are pushed in ascending discriminant
-    /// order, that no variant is pushed more than once, and that the builder
+    /// The caller must ensure that elements are pushed in ascending order by
+    /// the unsigned bit-pattern of each variant's in-memory representation
+    /// (see [`Enumerable`]'s safety contract for how signed discriminants
+    /// sort), that no variant is pushed more than once, and that the builder
     /// does not exceed capacity `N`.
     pub const unsafe fn push_unchecked(&mut self, _variant: &K, value: V) {
         debug_assert!(self.idx < N, "EnumTableBuilder: too many elements pushed");
 
         #[cfg(debug_assertions)]
-        unsafe {
-            self.keys
-                .as_mut_ptr()
-                .cast::<K>()
-                .add(self.idx)
-                .write(*_variant);
+        {
+            if let Some(last) = self.last_key {
+                assert!(
+                    crate::intrinsics::is_sorted(&[last, *_variant]),
+                    "EnumTableBuilder: elements are not pushed in ascending order. Ensure that the elements are pushed in the correct order."
+                );
+            }
+            self.last_key = Some(*_variant);
         }
 
         unsafe {
@@ -102,18 +106,7 @@ impl<K: Enumerable, V, const N: usize> EnumTableBuilder<K, V, N> {
         );
 
         // SAFETY: caller guarantees all N variants were pushed.
-        let table = unsafe { self.table.assume_init() };
-
-        #[cfg(debug_assertions)]
-        {
-            let keys = unsafe { self.keys.assume_init() };
-            assert!(
-                crate::intrinsics::is_sorted(&keys),
-                "EnumTableBuilder: elements are not sorted by discriminant. Ensure that the elements are pushed in the correct order."
-            );
-        }
-
-        table
+        unsafe { self.table.assume_init() }
     }
 
     /// Builds the `EnumTable` from the pushed elements.
