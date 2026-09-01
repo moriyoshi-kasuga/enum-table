@@ -22,8 +22,6 @@ pub mod __private {
 }
 
 mod impls;
-#[cfg(feature = "alloc")]
-pub use impls::*;
 
 mod macros;
 
@@ -239,21 +237,21 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
 
     /// Returns a reference to the underlying array of values.
     ///
-    /// Values are ordered by the sorted discriminant of the enum variants.
+    /// Values are ordered according to [`Enumerable::VARIANTS`].
     pub const fn as_slice(&self) -> &[V] {
         &self.table
     }
 
     /// Returns a mutable reference to the underlying array of values.
     ///
-    /// Values are ordered by the sorted discriminant of the enum variants.
+    /// Values are ordered according to [`Enumerable::VARIANTS`].
     pub const fn as_mut_slice(&mut self) -> &mut [V] {
         &mut self.table
     }
 
     /// Consumes the table and returns the underlying array of values.
     ///
-    /// Values are ordered by the sorted discriminant of the enum variants.
+    /// Values are ordered according to [`Enumerable::VARIANTS`].
     pub fn into_array(self) -> [V; N] {
         self.table
     }

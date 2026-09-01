@@ -275,7 +275,7 @@ assert!(vec.contains(&(Color::Red, "red")));
 #### To `EnumTable`
 
 - `try_from_vec()`: Creates a table from a `Vec<(K, V)>`.
-  Returns an error if any variant is missing or duplicated.
+  Returns `None` if any variant is missing or duplicated.
 - `try_from_hash_map()`: Creates a table from a `HashMap<K, V>`.
   Returns `None` if the map does not contain exactly one entry for each variant.
 - `try_from_btree_map()`: Creates a table from a `BTreeMap<K, V>`.

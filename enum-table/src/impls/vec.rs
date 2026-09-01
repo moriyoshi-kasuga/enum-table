@@ -3,31 +3,6 @@ extern crate alloc;
 use crate::{EnumTable, Enumerable};
 use alloc::vec::Vec;
 
-/// Error type for [`EnumTable::try_from_vec`].
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum EnumTableFromVecError<K> {
-    /// The vector has an invalid size.
-    InvalidSize { expected: usize, found: usize },
-    /// A required enum variant was missing from the vector, which implies
-    /// another variant was duplicated (the length check already passed).
-    MissingVariant(K),
-}
-
-impl<K: core::fmt::Debug> core::fmt::Display for EnumTableFromVecError<K> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            EnumTableFromVecError::InvalidSize { expected, found } => {
-                write!(f, "Invalid vector size: expected {expected}, found {found}")
-            }
-            EnumTableFromVecError::MissingVariant(variant) => {
-                write!(f, "Missing enum variant: {variant:?}")
-            }
-        }
-    }
-}
-
-impl<K: core::fmt::Debug> core::error::Error for EnumTableFromVecError<K> {}
-
 impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
     /// Consumes the table, returning a `Vec` of key-value pairs.
     ///
@@ -59,8 +34,8 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
         self.into_iter().collect()
     }
 
-    /// Creates an `EnumTable` from `vec`, or returns an error if it doesn't contain
-    /// exactly one entry for each variant of `K`.
+    /// Creates an `EnumTable` from `vec`, or returns `None` if it doesn't contain exactly
+    /// one entry for each variant of `K`.
     ///
     /// # Examples
     ///
@@ -85,12 +60,9 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
     /// assert_eq!(table.get(&Color::Green), &"green");
     /// assert_eq!(table.get(&Color::Blue), &"blue");
     /// ```
-    pub fn try_from_vec(vec: Vec<(K, V)>) -> Result<Self, EnumTableFromVecError<K>> {
+    pub fn try_from_vec(vec: Vec<(K, V)>) -> Option<Self> {
         if vec.len() != N {
-            return Err(EnumTableFromVecError::InvalidSize {
-                expected: N,
-                found: vec.len(),
-            });
+            return None;
         }
 
         let mut slots: [Option<V>; N] = core::array::from_fn(|_| None);
@@ -99,13 +71,9 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
             slots[key.variant_index()] = Some(value);
         }
 
-        let table = crate::intrinsics::try_collect_array(|i| {
-            slots[i]
-                .take()
-                .ok_or(EnumTableFromVecError::MissingVariant(K::VARIANTS[i]))
-        })?;
+        let table = crate::intrinsics::try_collect_array(|i| slots[i].take().ok_or(())).ok()?;
 
-        Ok(Self::new(table))
+        Some(Self::new(table))
     }
 }
 
@@ -161,13 +129,7 @@ mod tests {
         ];
 
         let result = EnumTable::<Color, &str, { Color::COUNT }>::try_from_vec(vec);
-        assert_eq!(
-            result,
-            Err(crate::EnumTableFromVecError::InvalidSize {
-                expected: 3,
-                found: 2
-            })
-        );
+        assert_eq!(result, None);
     }
 
     #[test]
@@ -179,10 +141,7 @@ mod tests {
         ];
 
         let result = EnumTable::<Color, &str, { Color::COUNT }>::try_from_vec(vec);
-        assert_eq!(
-            result,
-            Err(crate::EnumTableFromVecError::MissingVariant(Color::Blue))
-        );
+        assert_eq!(result, None);
     }
 
     #[test]
