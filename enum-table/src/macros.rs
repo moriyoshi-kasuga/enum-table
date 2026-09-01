@@ -9,7 +9,8 @@
 /// # Panics
 ///
 /// If the closure body panics, values already pushed into the internal builder are
-/// leaked rather than dropped; see [`crate::builder::EnumTableBuilder`] for why.
+/// leaked rather than dropped, since the internal builder is a `const fn`-compatible
+/// type that cannot implement `Drop`.
 ///
 /// # Examples
 ///
@@ -38,7 +39,7 @@
 macro_rules! et {
     ($variant:ty, $value:ty, |$variable:ident| $($tt:tt)*) => {
         {
-            let mut builder = $crate::builder::EnumTableBuilder::<
+            let mut builder = $crate::__private::EnumTableBuilder::<
                 $variant,
                 $value,
                 { <$variant as $crate::Enumerable>::COUNT },

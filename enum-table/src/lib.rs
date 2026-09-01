@@ -12,11 +12,12 @@ use core::marker::PhantomData;
 #[cfg(feature = "derive")]
 pub use enum_table_derive::Enumerable;
 
-pub mod builder;
+mod builder;
 mod intrinsics;
 
 #[doc(hidden)]
 pub mod __private {
+    pub use crate::builder::EnumTableBuilder;
     pub use crate::intrinsics::{sort_variants, variant_index_of};
 }
 

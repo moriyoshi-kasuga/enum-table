@@ -3,41 +3,18 @@ use core::mem::MaybeUninit;
 
 use crate::{EnumTable, Enumerable};
 
-/// Incrementally builds an `EnumTable` by pushing one value per variant.
+/// The mechanism [`crate::et`] uses to construct an `EnumTable` at compile time by
+/// pushing one value per variant.
 ///
-/// Prefer the [`crate::et`] macro over using this type directly.
+/// `pub` only because `et!`'s expansion must reference this type from the
+/// caller's crate; `et!` covers every construction need this type exists for,
+/// so there is no supported way to use it directly.
 ///
 /// Dropping a builder before it is fully pushed leaks its already-pushed
 /// elements instead of running their destructors: `build_unchecked` and
 /// `build_to_unchecked` are `const fn`, and a `const fn` cannot run a `Drop`
 /// implementation, so `EnumTableBuilder` cannot implement `Drop` without
 /// losing const-context support.
-///
-/// # Examples
-/// ```rust
-/// use enum_table::{EnumTable, Enumerable, builder::EnumTableBuilder,};
-///
-/// #[derive(Debug, Copy, Clone, Enumerable)]
-/// enum Test {
-///     A,
-///     B,
-///     C,
-/// }
-///
-/// const TABLE: EnumTable<Test, &'static str, { Test::COUNT }> = {
-///    let mut builder = EnumTableBuilder::<Test, &'static str, { Test::COUNT }>::new();
-///    unsafe {
-///        builder.push_unchecked(&Test::A, "A");
-///        builder.push_unchecked(&Test::B, "B");
-///        builder.push_unchecked(&Test::C, "C");
-///        builder.build_to_unchecked()
-///    }
-/// };
-///
-/// assert_eq!(TABLE.get(&Test::A), &"A");
-/// assert_eq!(TABLE.get(&Test::B), &"B");
-/// assert_eq!(TABLE.get(&Test::C), &"C");
-/// ```
 pub struct EnumTableBuilder<K: Enumerable, V, const N: usize> {
     idx: usize,
     table: MaybeUninit<[V; N]>,
