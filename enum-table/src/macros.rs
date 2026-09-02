@@ -1,16 +1,16 @@
-/// Builds an `EnumTable` for `$variant` and `$value` in a `const` context, by matching
-/// each variant to a value in the given closure body.
+/// Builds an `EnumTable` for `$variant` and `$value` by matching each variant to a
+/// value in the given closure body.
 ///
-/// Use this macro to build a table in `const` context, such as a `static`. Outside
-/// `const` context, use one of `EnumTable`'s constructors instead, such as
-/// [`crate::EnumTable::new_with_fn`], [`crate::EnumTable::try_new_with_fn`], or
-/// [`crate::EnumTable::checked_new_with_fn`].
+/// The closure body is always evaluated inside a `const` block, so it may only use
+/// expressions that are valid in a `const` context, such as `const fn` calls. If you
+/// need to build a table at runtime, using non-`const` operations, use one of
+/// `EnumTable`'s constructors instead, such as [`crate::EnumTable::new_with_fn`],
+/// [`crate::EnumTable::try_new_with_fn`], or [`crate::EnumTable::checked_new_with_fn`].
 ///
 /// # Panics
 ///
-/// If the closure body panics, values already pushed into the internal builder are
-/// leaked rather than dropped, since the internal builder is a `const fn`-compatible
-/// type that cannot implement `Drop`.
+/// If the closure body panics, evaluation fails at compile time, so the crate using
+/// this macro fails to compile rather than panicking at runtime.
 ///
 /// # Examples
 ///
@@ -38,7 +38,7 @@
 #[macro_export]
 macro_rules! et {
     ($variant:ty, $value:ty, |$variable:ident| $($tt:tt)*) => {
-        {
+        const {
             let mut builder = $crate::__private::EnumTableBuilder::<
                 $variant,
                 $value,
@@ -46,7 +46,7 @@ macro_rules! et {
             >::new();
 
             let mut i = 0;
-            while i < builder.capacity() {
+            while i < <$variant as $crate::Enumerable>::COUNT  {
                 let $variable = &<$variant as $crate::Enumerable>::VARIANTS[i];
                 let value = $($tt)*;
                 unsafe {
@@ -86,19 +86,7 @@ mod tests {
     }
 
     #[test]
-    fn et_macro_panic_leaks_pushed_elements() {
-        use std::panic::{AssertUnwindSafe, catch_unwind};
-        use std::sync::atomic::{AtomicUsize, Ordering};
-
-        static DROP_COUNT: AtomicUsize = AtomicUsize::new(0);
-
-        struct Droppable;
-        impl Drop for Droppable {
-            fn drop(&mut self) {
-                DROP_COUNT.fetch_add(1, Ordering::SeqCst);
-            }
-        }
-
+    fn et_macro_in_fn_body() {
         #[derive(Clone, Copy, Enumerable)]
         enum Test {
             A,
@@ -106,22 +94,15 @@ mod tests {
             C,
         }
 
-        DROP_COUNT.store(0, Ordering::SeqCst);
+        let table: EnumTable<Test, &'static str, { Test::COUNT }> =
+            et!(Test, &'static str, |t| match t {
+                Test::A => "A",
+                Test::B => "B",
+                Test::C => "C",
+            });
 
-        let result = catch_unwind(AssertUnwindSafe(|| {
-            let _: EnumTable<Test, Droppable, { Test::COUNT }> =
-                et!(Test, Droppable, |t| match t {
-                    Test::A => Droppable,
-                    Test::B => panic!("boom"),
-                    Test::C => Droppable,
-                });
-        }));
-
-        assert!(result.is_err());
-        // `Test::A`'s `Droppable` was already pushed into the builder when the
-        // panic on `Test::B` unwound. Per the macro's documented behavior, it
-        // is leaked (the builder stores it in a `MaybeUninit`, which never
-        // runs `Drop`) rather than dropped.
-        assert_eq!(DROP_COUNT.load(Ordering::SeqCst), 0);
+        assert_eq!(table.get(&Test::A), &"A");
+        assert_eq!(table.get(&Test::B), &"B");
+        assert_eq!(table.get(&Test::C), &"C");
     }
 }

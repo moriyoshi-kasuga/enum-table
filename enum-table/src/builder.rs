@@ -25,6 +25,7 @@ pub struct EnumTableBuilder<K: Enumerable, V, const N: usize> {
 
 impl<K: Enumerable, V, const N: usize> EnumTableBuilder<K, V, N> {
     /// Creates a new, empty `EnumTableBuilder`.
+    #[allow(clippy::new_without_default)]
     pub const fn new() -> Self {
         Self {
             idx: 0,
@@ -93,67 +94,5 @@ impl<K: Enumerable, V, const N: usize> EnumTableBuilder<K, V, N> {
     /// The caller must ensure that all `N` variants have been pushed to the builder.
     pub const unsafe fn build_to_unchecked(self) -> EnumTable<K, V, N> {
         EnumTable::new(unsafe { self.build_unchecked() })
-    }
-
-    /// Returns the number of elements pushed into the builder.
-    pub const fn len(&self) -> usize {
-        self.idx
-    }
-
-    /// Returns the capacity of the builder.
-    pub const fn capacity(&self) -> usize {
-        N
-    }
-
-    /// Returns `true` if no elements have been pushed yet.
-    pub const fn is_empty(&self) -> bool {
-        self.idx == 0
-    }
-}
-
-impl<K: Enumerable, V, const N: usize> Default for EnumTableBuilder<K, V, N> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn builder() {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Enumerable)]
-        enum Test {
-            A,
-            B,
-            C,
-        }
-
-        const TABLE: EnumTable<Test, &'static str, { Test::COUNT }> = {
-            let mut builder = EnumTableBuilder::<Test, &'static str, { Test::COUNT }>::new();
-
-            let mut i = 0;
-            while i < builder.capacity() {
-                let t = &Test::VARIANTS[i];
-                unsafe {
-                    builder.push_unchecked(
-                        t,
-                        match t {
-                            Test::A => "A",
-                            Test::B => "B",
-                            Test::C => "C",
-                        },
-                    );
-                }
-                i += 1;
-            }
-
-            unsafe { builder.build_to_unchecked() }
-        };
-
-        assert_eq!(TABLE.get(&Test::A), &"A");
-        assert_eq!(TABLE.get(&Test::B), &"B");
-        assert_eq!(TABLE.get(&Test::C), &"C");
     }
 }
