@@ -302,12 +302,12 @@ For complete API documentation, visit [EnumTable on doc.rs](https://docs.rs/enum
 The `enum-table` library is designed for performance:
 
 - **Access Time**: Fast lookup time at runtime via the derived `variant_index()` method,
-  which uses compile-time-computed constants for each arm. This compiles down to O(1)
-  (a single memory read) for enums with dense, sequential discriminants, and to a
-  compiler-generated comparison tree for sparse or custom discriminants — still faster
-  than the O(log N) binary search used by the fallback (manual) implementation and by
-  the `const fn` variants (`get_const`, etc.), which use binary search for `const`
-  context compatibility.
+  which uses compile-time-computed constants for each arm. This tends to compile down to
+  O(1) (a single memory read) for enums with dense, sequential discriminants, and to a
+  compiler-generated comparison tree for sparse or custom discriminants — the exact
+  codegen depends on what LLVM chooses, but both are still faster than the O(log N)
+  binary search used by the fallback (manual) implementation and by the `const fn`
+  variants (`get_const`, etc.), which use binary search for `const` context compatibility.
 - **Memory Efficiency**: No heap allocations for the table structure, leading to better cache locality.
 - **Compile-Time Optimization**: Static tables can be fully constructed at compile time.
 
