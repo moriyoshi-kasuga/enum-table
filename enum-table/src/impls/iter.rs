@@ -60,7 +60,7 @@ impl<'a, K: Enumerable, V, const N: usize> IntoIterator for &'a EnumTable<K, V, 
 impl<K: Enumerable, V, const N: usize> Extend<(K, V)> for EnumTable<K, V, N> {
     fn extend<I: IntoIterator<Item = (K, V)>>(&mut self, iter: I) {
         for (k, v) in iter {
-            self.set(&k, v);
+            self.set(k, v);
         }
     }
 }
@@ -68,7 +68,7 @@ impl<K: Enumerable, V, const N: usize> Extend<(K, V)> for EnumTable<K, V, N> {
 impl<'a, K: Enumerable, V: Copy, const N: usize> Extend<(&'a K, &'a V)> for EnumTable<K, V, N> {
     fn extend<I: IntoIterator<Item = (&'a K, &'a V)>>(&mut self, iter: I) {
         for (k, v) in iter {
-            self.set(k, *v);
+            self.set(*k, *v);
         }
     }
 }
@@ -143,16 +143,16 @@ mod tests {
     fn extend_owned() {
         let mut table = TABLES;
         table.extend([(Color::Red, "New Red"), (Color::Blue, "New Blue")]);
-        assert_eq!(table.get(&Color::Red), &"New Red");
-        assert_eq!(table.get(&Color::Green), &"Green");
-        assert_eq!(table.get(&Color::Blue), &"New Blue");
+        assert_eq!(table.get(Color::Red), &"New Red");
+        assert_eq!(table.get(Color::Green), &"Green");
+        assert_eq!(table.get(Color::Blue), &"New Blue");
     }
 
     #[test]
     fn extend_ref() {
         let mut table = TABLES;
         table.extend([(&Color::Red, &"New Red")]);
-        assert_eq!(table.get(&Color::Red), &"New Red");
-        assert_eq!(table.get(&Color::Green), &"Green");
+        assert_eq!(table.get(Color::Red), &"New Red");
+        assert_eq!(table.get(Color::Green), &"Green");
     }
 }

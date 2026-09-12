@@ -113,11 +113,11 @@ let mut table = EnumTable::<Test, &'static str, { Test::COUNT }>::new_with_fn(
     Test::C => "C",
 });
 
-assert_eq!(table.get(&Test::A), &"A");
+assert_eq!(table.get(Test::A), &"A");
 
-let old_b = table.set(&Test::B, "Changed B");
+let old_b = table.set(Test::B, "Changed B");
 assert_eq!(old_b, "B");
-assert_eq!(table.get(&Test::B), &"Changed B");
+assert_eq!(table.get(Test::B), &"Changed B");
 ```
 
 ### `const` Context and `et!` macro
@@ -142,7 +142,7 @@ static TABLE: EnumTable<Test, &'static str, { Test::VARIANTS.len() }> =
       Test::C => "C",
   });
 
-const A_VAL: &str = TABLE.get_const(&Test::A);
+const A_VAL: &str = TABLE.get_const(Test::A);
 assert_eq!(A_VAL, "A");
 ```
 

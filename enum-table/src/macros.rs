@@ -24,9 +24,9 @@
 ///         Test::C => "C",
 ///     });
 ///
-/// assert_eq!(TABLE.get(&Test::A), &"A");
-/// assert_eq!(TABLE.get(&Test::B), &"B");
-/// assert_eq!(TABLE.get(&Test::C), &"C");
+/// assert_eq!(TABLE.get(Test::A), &"A");
+/// assert_eq!(TABLE.get(Test::B), &"B");
+/// assert_eq!(TABLE.get(Test::C), &"C");
 /// ```
 #[macro_export]
 macro_rules! et {

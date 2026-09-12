@@ -112,9 +112,9 @@ pub unsafe trait Enumerable: Copy + 'static {
 ///     Color::Blue => "Blue",
 /// });
 ///
-/// assert_eq!(table.get(&Color::Red), &"Red");
-/// assert_eq!(table.get(&Color::Green), &"Green");
-/// assert_eq!(table.get(&Color::Blue), &"Blue");
+/// assert_eq!(table.get(Color::Red), &"Red");
+/// assert_eq!(table.get(Color::Green), &"Green");
+/// assert_eq!(table.get(Color::Blue), &"Blue");
 /// ```
 pub struct EnumTable<K: Enumerable, V, const N: usize> {
     table: [V; N],
@@ -207,35 +207,35 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
     }
 
     /// Returns a reference to the value associated with `variant`, via O(1) lookup.
-    pub fn get(&self, variant: &K) -> &V {
+    pub fn get(&self, variant: K) -> &V {
         &self.table[variant.variant_index()]
     }
 
     /// Returns a mutable reference to the value associated with `variant`, via O(1) lookup.
-    pub fn get_mut(&mut self, variant: &K) -> &mut V {
+    pub fn get_mut(&mut self, variant: K) -> &mut V {
         &mut self.table[variant.variant_index()]
     }
 
     /// Sets the value associated with `variant`, via O(1) lookup, and returns the old value.
-    pub fn set(&mut self, variant: &K, value: V) -> V {
+    pub fn set(&mut self, variant: K, value: V) -> V {
         core::mem::replace(&mut self.table[variant.variant_index()], value)
     }
 
     /// `const fn` equivalent of [`Self::get`], using O(log N) binary search instead of O(1) lookup.
-    pub const fn get_const(&self, variant: &K) -> &V {
-        let idx = intrinsics::binary_search_index::<K>(variant);
+    pub const fn get_const(&self, variant: K) -> &V {
+        let idx = intrinsics::binary_search_index::<K>(&variant);
         &self.table[idx]
     }
 
     /// `const fn` equivalent of [`Self::get_mut`], using O(log N) binary search instead of O(1) lookup.
-    pub const fn get_mut_const(&mut self, variant: &K) -> &mut V {
-        let idx = intrinsics::binary_search_index::<K>(variant);
+    pub const fn get_mut_const(&mut self, variant: K) -> &mut V {
+        let idx = intrinsics::binary_search_index::<K>(&variant);
         &mut self.table[idx]
     }
 
     /// `const fn` equivalent of [`Self::set`], using O(log N) binary search instead of O(1) lookup.
-    pub const fn set_const(&mut self, variant: &K, value: V) -> V {
-        let idx = intrinsics::binary_search_index::<K>(variant);
+    pub const fn set_const(&mut self, variant: K, value: V) -> V {
+        let idx = intrinsics::binary_search_index::<K>(&variant);
         core::mem::replace(&mut self.table[idx], value)
     }
 
@@ -266,9 +266,9 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
     /// });
     ///
     /// let total = base.zip(bonus, |_stat, a, b| a + b);
-    /// assert_eq!(total.get(&Stat::Hp), &120);
-    /// assert_eq!(total.get(&Stat::Attack), &60);
-    /// assert_eq!(total.get(&Stat::Defense), &35);
+    /// assert_eq!(total.get(Stat::Hp), &120);
+    /// assert_eq!(total.get(Stat::Attack), &60);
+    /// assert_eq!(total.get(Stat::Defense), &35);
     /// ```
     pub fn zip<U, W>(
         self,
@@ -308,9 +308,9 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
     ///
     /// let doubled = table.map(|_size, value| value * 2);
     ///
-    /// assert_eq!(doubled.get(&Size::Small), &2);
-    /// assert_eq!(doubled.get(&Size::Medium), &4);
-    /// assert_eq!(doubled.get(&Size::Large), &6);
+    /// assert_eq!(doubled.get(Size::Small), &2);
+    /// assert_eq!(doubled.get(Size::Medium), &4);
+    /// assert_eq!(doubled.get(Size::Large), &6);
     /// ```
     pub fn map<U>(self, mut f: impl FnMut(K, V) -> U) -> EnumTable<K, U, N> {
         let mut i = 0;
@@ -343,9 +343,9 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
     ///
     /// table.map_mut(|_level, value| *value += 5);
     ///
-    /// assert_eq!(table.get(&Level::Low), &15);
-    /// assert_eq!(table.get(&Level::Medium), &25);
-    /// assert_eq!(table.get(&Level::High), &35);
+    /// assert_eq!(table.get(Level::Low), &15);
+    /// assert_eq!(table.get(Level::Medium), &25);
+    /// assert_eq!(table.get(Level::High), &35);
     /// ```
     pub fn map_mut(&mut self, mut f: impl FnMut(K, &mut V)) {
         self.table.iter_mut().enumerate().for_each(|(i, value)| {
@@ -371,9 +371,9 @@ impl<K: Enumerable, V: Copy, const N: usize> EnumTable<K, V, N> {
     ///
     /// let table = EnumTable::<Status, i32, { Status::COUNT }>::new_fill_with_copy(42);
     ///
-    /// assert_eq!(table.get(&Status::Active), &42);
-    /// assert_eq!(table.get(&Status::Inactive), &42);
-    /// assert_eq!(table.get(&Status::Pending), &42);
+    /// assert_eq!(table.get(Status::Active), &42);
+    /// assert_eq!(table.get(Status::Inactive), &42);
+    /// assert_eq!(table.get(Status::Pending), &42);
     /// ```
     pub const fn new_fill_with_copy(value: V) -> Self {
         Self::new([value; N])
@@ -393,7 +393,7 @@ impl<K: Enumerable, V: Default, const N: usize> EnumTable<K, V, N> {
 
     /// Replaces the value associated with `variant` with its default,
     /// and returns the old value.
-    pub fn take(&mut self, variant: &K) -> V {
+    pub fn take(&mut self, variant: K) -> V {
         core::mem::take(&mut self.table[variant.variant_index()])
     }
 }
@@ -425,9 +425,9 @@ mod tests {
                 Color::Blue => "Blue",
             });
 
-        assert_eq!(table.get(&Color::Red), &"Red");
-        assert_eq!(table.get(&Color::Green), &"Green");
-        assert_eq!(table.get(&Color::Blue), &"Blue");
+        assert_eq!(table.get(Color::Red), &"Red");
+        assert_eq!(table.get(Color::Green), &"Green");
+        assert_eq!(table.get(Color::Blue), &"Blue");
     }
 
     #[test]
@@ -444,9 +444,9 @@ mod tests {
         assert!(table.is_ok());
         let table = table.unwrap();
 
-        assert_eq!(table.get(&Color::Red), &"Red");
-        assert_eq!(table.get(&Color::Green), &"Green");
-        assert_eq!(table.get(&Color::Blue), &"Blue");
+        assert_eq!(table.get(Color::Red), &"Red");
+        assert_eq!(table.get(Color::Green), &"Green");
+        assert_eq!(table.get(Color::Blue), &"Blue");
 
         let error_table = EnumTable::<Color, &'static str, { Color::COUNT }>::try_new_with_fn(
             |color| match color {
@@ -477,9 +477,9 @@ mod tests {
         assert!(table.is_ok());
         let table = table.unwrap();
 
-        assert_eq!(table.get(&Color::Red), &"Red");
-        assert_eq!(table.get(&Color::Green), &"Green");
-        assert_eq!(table.get(&Color::Blue), &"Blue");
+        assert_eq!(table.get(Color::Red), &"Red");
+        assert_eq!(table.get(Color::Green), &"Green");
+        assert_eq!(table.get(Color::Blue), &"Blue");
 
         let error_table =
             EnumTable::<Color, &'static str, { Color::COUNT }>::checked_new_with_fn(|color| {
@@ -506,9 +506,9 @@ mod tests {
 
         let table =
             EnumTable::<Color, &str, { Color::COUNT }>::try_from_pairs(pairs.into_iter()).unwrap();
-        assert_eq!(table.get(&Color::Red), &"Red");
-        assert_eq!(table.get(&Color::Green), &"Green");
-        assert_eq!(table.get(&Color::Blue), &"Blue");
+        assert_eq!(table.get(Color::Red), &"Red");
+        assert_eq!(table.get(Color::Green), &"Green");
+        assert_eq!(table.get(Color::Blue), &"Blue");
     }
 
     #[test]
@@ -535,37 +535,37 @@ mod tests {
 
     #[test]
     fn get() {
-        assert_eq!(TABLES.get(&Color::Red), &"Red");
-        assert_eq!(TABLES.get(&Color::Green), &"Green");
-        assert_eq!(TABLES.get(&Color::Blue), &"Blue");
+        assert_eq!(TABLES.get(Color::Red), &"Red");
+        assert_eq!(TABLES.get(Color::Green), &"Green");
+        assert_eq!(TABLES.get(Color::Blue), &"Blue");
     }
 
     #[test]
     fn get_mut() {
         let mut table = TABLES;
-        assert_eq!(table.get_mut(&Color::Red), &mut "Red");
-        assert_eq!(table.get_mut(&Color::Green), &mut "Green");
-        assert_eq!(table.get_mut(&Color::Blue), &mut "Blue");
+        assert_eq!(table.get_mut(Color::Red), &mut "Red");
+        assert_eq!(table.get_mut(Color::Green), &mut "Green");
+        assert_eq!(table.get_mut(Color::Blue), &mut "Blue");
 
-        *table.get_mut(&Color::Red) = "Changed Red";
-        *table.get_mut(&Color::Green) = "Changed Green";
-        *table.get_mut(&Color::Blue) = "Changed Blue";
+        *table.get_mut(Color::Red) = "Changed Red";
+        *table.get_mut(Color::Green) = "Changed Green";
+        *table.get_mut(Color::Blue) = "Changed Blue";
 
-        assert_eq!(table.get(&Color::Red), &"Changed Red");
-        assert_eq!(table.get(&Color::Green), &"Changed Green");
-        assert_eq!(table.get(&Color::Blue), &"Changed Blue");
+        assert_eq!(table.get(Color::Red), &"Changed Red");
+        assert_eq!(table.get(Color::Green), &"Changed Green");
+        assert_eq!(table.get(Color::Blue), &"Changed Blue");
     }
 
     #[test]
     fn set() {
         let mut table = TABLES;
-        assert_eq!(table.set(&Color::Red, "New Red"), "Red");
-        assert_eq!(table.set(&Color::Green, "New Green"), "Green");
-        assert_eq!(table.set(&Color::Blue, "New Blue"), "Blue");
+        assert_eq!(table.set(Color::Red, "New Red"), "Red");
+        assert_eq!(table.set(Color::Green, "New Green"), "Green");
+        assert_eq!(table.set(Color::Blue, "New Blue"), "Blue");
 
-        assert_eq!(table.get(&Color::Red), &"New Red");
-        assert_eq!(table.get(&Color::Green), &"New Green");
-        assert_eq!(table.get(&Color::Blue), &"New Blue");
+        assert_eq!(table.get(Color::Red), &"New Red");
+        assert_eq!(table.get(Color::Green), &"New Green");
+        assert_eq!(table.get(Color::Blue), &"New Blue");
     }
 
     #[test]
@@ -628,9 +628,9 @@ mod tests {
             Color::Blue => value + 30,  // 3 + 30 = 33
         });
 
-        assert_eq!(mapped.get(&Color::Red), &11);
-        assert_eq!(mapped.get(&Color::Green), &22);
-        assert_eq!(mapped.get(&Color::Blue), &33);
+        assert_eq!(mapped.get(Color::Red), &11);
+        assert_eq!(mapped.get(Color::Green), &22);
+        assert_eq!(mapped.get(Color::Blue), &33);
     }
 
     #[test]
@@ -650,9 +650,9 @@ mod tests {
             }
         });
 
-        assert_eq!(table.get(&Color::Red), &11);
-        assert_eq!(table.get(&Color::Green), &22);
-        assert_eq!(table.get(&Color::Blue), &33);
+        assert_eq!(table.get(Color::Red), &11);
+        assert_eq!(table.get(Color::Green), &22);
+        assert_eq!(table.get(Color::Blue), &33);
     }
 
     macro_rules! run_variants_test {
@@ -667,7 +667,7 @@ mod tests {
                 $(Test::$variant => stringify!($variant),)*
             });
             $(
-                assert_eq!(map.get(&Test::$variant), &stringify!($variant));
+                assert_eq!(map.get(Test::$variant), &stringify!($variant));
             )*
         }};
     }
@@ -713,16 +713,16 @@ mod tests {
                 Signed::Pos => "pos",
             });
 
-        assert_eq!(table.get(&Signed::Neg), &"neg");
-        assert_eq!(table.get(&Signed::Zero), &"zero");
-        assert_eq!(table.get(&Signed::Pos), &"pos");
+        assert_eq!(table.get(Signed::Neg), &"neg");
+        assert_eq!(table.get(Signed::Zero), &"zero");
+        assert_eq!(table.get(Signed::Pos), &"pos");
     }
 
     #[test]
     fn get_const() {
-        const RED: &str = TABLES.get_const(&Color::Red);
-        const GREEN: &str = TABLES.get_const(&Color::Green);
-        const BLUE: &str = TABLES.get_const(&Color::Blue);
+        const RED: &str = TABLES.get_const(Color::Red);
+        const GREEN: &str = TABLES.get_const(Color::Green);
+        const BLUE: &str = TABLES.get_const(Color::Blue);
 
         assert_eq!(RED, "Red");
         assert_eq!(GREEN, "Green");
@@ -733,23 +733,23 @@ mod tests {
     fn set_const() {
         const fn make_table() -> EnumTable<Color, &'static str, { Color::COUNT }> {
             let mut table = TABLES;
-            table.set_const(&Color::Red, "New Red");
+            table.set_const(Color::Red, "New Red");
             table
         }
         const TABLE: EnumTable<Color, &'static str, { Color::COUNT }> = make_table();
-        assert_eq!(TABLE.get_const(&Color::Red), &"New Red");
-        assert_eq!(TABLE.get_const(&Color::Green), &"Green");
+        assert_eq!(TABLE.get_const(Color::Red), &"New Red");
+        assert_eq!(TABLE.get_const(Color::Green), &"Green");
     }
 
     #[test]
     fn get_mut_const() {
         const fn make_table() -> EnumTable<Color, &'static str, { Color::COUNT }> {
             let mut table = TABLES;
-            *table.get_mut_const(&Color::Green) = "Changed Green";
+            *table.get_mut_const(Color::Green) = "Changed Green";
             table
         }
         const TABLE: EnumTable<Color, &'static str, { Color::COUNT }> = make_table();
-        assert_eq!(TABLE.get_const(&Color::Green), &"Changed Green");
+        assert_eq!(TABLE.get_const(Color::Green), &"Changed Green");
     }
 
     #[test]
@@ -761,11 +761,11 @@ mod tests {
                 Color::Blue => None,
             });
 
-        assert_eq!(table.take(&Color::Red), Some(1));
-        assert_eq!(table.get(&Color::Red), &None);
+        assert_eq!(table.take(Color::Red), Some(1));
+        assert_eq!(table.get(Color::Red), &None);
 
-        assert_eq!(table.take(&Color::Blue), None);
-        assert_eq!(table.get(&Color::Blue), &None);
+        assert_eq!(table.take(Color::Blue), None);
+        assert_eq!(table.get(Color::Blue), &None);
     }
 
     #[test]
@@ -777,9 +777,9 @@ mod tests {
                 Color::Blue => 3,
             });
 
-        assert_eq!(table.take(&Color::Red), 1);
-        assert_eq!(table.get(&Color::Red), &0);
-        assert_eq!(table.get(&Color::Green), &2);
+        assert_eq!(table.take(Color::Red), 1);
+        assert_eq!(table.get(Color::Red), &0);
+        assert_eq!(table.get(Color::Green), &2);
     }
 
     #[test]
@@ -793,9 +793,9 @@ mod tests {
 
         table.clear();
 
-        assert_eq!(table.get(&Color::Red), &None);
-        assert_eq!(table.get(&Color::Green), &None);
-        assert_eq!(table.get(&Color::Blue), &None);
+        assert_eq!(table.get(Color::Red), &None);
+        assert_eq!(table.get(Color::Green), &None);
+        assert_eq!(table.get(Color::Blue), &None);
     }
 
     #[test]
@@ -815,9 +815,9 @@ mod tests {
             Color::Blue => x + y as i32 - 100, // distinguish Blue via the key
             _ => x + y as i32,
         });
-        assert_eq!(sum.get(&Color::Red), &-9);
-        assert_eq!(sum.get(&Color::Green), &-18);
-        assert_eq!(sum.get(&Color::Blue), &-127);
+        assert_eq!(sum.get(Color::Red), &-9);
+        assert_eq!(sum.get(Color::Green), &-18);
+        assert_eq!(sum.get(Color::Blue), &-127);
     }
 
     #[test]
@@ -831,8 +831,8 @@ mod tests {
 
         table.clear();
 
-        assert_eq!(table.get(&Color::Red), &0);
-        assert_eq!(table.get(&Color::Green), &0);
-        assert_eq!(table.get(&Color::Blue), &0);
+        assert_eq!(table.get(Color::Red), &0);
+        assert_eq!(table.get(Color::Green), &0);
+        assert_eq!(table.get(Color::Blue), &0);
     }
 }

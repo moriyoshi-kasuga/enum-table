@@ -18,16 +18,16 @@ fn test() {
         Test::C => "C",
     });
 
-    assert_eq!(table.get(&Test::A), &"A");
-    assert_eq!(table.get(&Test::B), &"B");
-    assert_eq!(table.get(&Test::C), &"C");
-    assert_eq!(table.get_mut(&Test::A), &mut "A");
+    assert_eq!(table.get(Test::A), &"A");
+    assert_eq!(table.get(Test::B), &"B");
+    assert_eq!(table.get(Test::C), &"C");
+    assert_eq!(table.get_mut(Test::A), &mut "A");
 
-    *table.get_mut(&Test::A) = "AA";
+    *table.get_mut(Test::A) = "AA";
 
-    assert_eq!(table.get(&Test::A), &"AA");
+    assert_eq!(table.get(Test::A), &"AA");
 
-    table.set(&Test::A, "AAA");
+    table.set(Test::A, "AAA");
 
-    assert_eq!(table.get(&Test::A), &"AAA");
+    assert_eq!(table.get(Test::A), &"AAA");
 }

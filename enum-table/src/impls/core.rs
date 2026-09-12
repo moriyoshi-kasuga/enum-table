@@ -46,13 +46,13 @@ impl<K: Enumerable, V, const N: usize> Index<K> for EnumTable<K, V, N> {
     type Output = V;
 
     fn index(&self, index: K) -> &Self::Output {
-        self.get(&index)
+        self.get(index)
     }
 }
 
 impl<K: Enumerable, V, const N: usize> IndexMut<K> for EnumTable<K, V, N> {
     fn index_mut(&mut self, index: K) -> &mut Self::Output {
-        self.get_mut(&index)
+        self.get_mut(index)
     }
 }
 
@@ -60,13 +60,13 @@ impl<K: Enumerable, V, const N: usize> Index<&K> for EnumTable<K, V, N> {
     type Output = V;
 
     fn index(&self, index: &K) -> &Self::Output {
-        self.get(index)
+        self.get(*index)
     }
 }
 
 impl<K: Enumerable, V, const N: usize> IndexMut<&K> for EnumTable<K, V, N> {
     fn index_mut(&mut self, index: &K) -> &mut Self::Output {
-        self.get_mut(index)
+        self.get_mut(*index)
     }
 }
 
@@ -127,9 +127,9 @@ mod tests {
     #[test]
     fn default_impl() {
         let default_table: EnumTable<Color, &'static str, { Color::COUNT }> = EnumTable::default();
-        assert_eq!(default_table.get(&Color::Red), &"");
-        assert_eq!(default_table.get(&Color::Green), &"");
-        assert_eq!(default_table.get(&Color::Blue), &"");
+        assert_eq!(default_table.get(Color::Red), &"");
+        assert_eq!(default_table.get(Color::Green), &"");
+        assert_eq!(default_table.get(Color::Blue), &"");
     }
 
     #[test]

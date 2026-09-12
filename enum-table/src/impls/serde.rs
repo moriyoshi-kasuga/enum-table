@@ -126,9 +126,9 @@ mod tests {
         let json = r#"{"Red":"Red","Green":"Green","Blue":"Blue"}"#;
         let table: EnumTable<Color, &str, { Color::COUNT }> = serde_json::from_str(json).unwrap();
 
-        assert_eq!(table.get(&Color::Red), &"Red");
-        assert_eq!(table.get(&Color::Green), &"Green");
-        assert_eq!(table.get(&Color::Blue), &"Blue");
+        assert_eq!(table.get(Color::Red), &"Red");
+        assert_eq!(table.get(Color::Green), &"Green");
+        assert_eq!(table.get(Color::Blue), &"Blue");
     }
 
     #[test]

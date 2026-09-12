@@ -58,10 +58,10 @@ fn single_get(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("single_get");
     group.bench_function("EnumTable::get", |b| {
-        b.iter(|| black_box(*black_box(&table).get(black_box(&Letter::D))))
+        b.iter(|| black_box(*black_box(&table).get(black_box(Letter::D))))
     });
     group.bench_function("EnumTable::get_const", |b| {
-        b.iter(|| black_box(*black_box(&table).get_const(black_box(&Letter::D))))
+        b.iter(|| black_box(*black_box(&table).get_const(black_box(Letter::D))))
     });
     group.bench_function("HashMap::get", |b| {
         b.iter(|| {
@@ -80,7 +80,7 @@ fn single_set(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("single_set");
     group.bench_function("EnumTable::set", |b| {
-        b.iter(|| black_box(table.set(black_box(&Letter::D), black_box("Updated"))))
+        b.iter(|| black_box(table.set(black_box(Letter::D), black_box("Updated"))))
     });
     group.bench_function("HashMap::insert", |b| {
         b.iter(|| black_box(map.insert(black_box(Letter::D), black_box("Updated"))))
@@ -98,7 +98,7 @@ fn bulk_get_all_variants(c: &mut Criterion) {
     group.bench_function("EnumTable::get", |b| {
         b.iter(|| {
             for letter in Letter::VARIANTS {
-                black_box(*black_box(&table).get(black_box(letter)));
+                black_box(*black_box(&table).get(black_box(*letter)));
             }
         })
     });
@@ -124,7 +124,7 @@ fn bulk_set_all_variants(c: &mut Criterion) {
     group.bench_function("EnumTable::set", |b| {
         b.iter(|| {
             for letter in Letter::VARIANTS {
-                black_box(table.set(black_box(letter), black_box("Updated")));
+                black_box(table.set(black_box(*letter), black_box("Updated")));
             }
         })
     });
