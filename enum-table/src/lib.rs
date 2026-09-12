@@ -25,31 +25,23 @@ mod impls;
 
 mod macros;
 
-/// Enumerations whose variants `EnumTable` can list and index.
+/// A `Copy` enum whose variants `EnumTable` can enumerate and index by position.
 ///
-/// Prefer `#[derive(Enumerable)]` over a manual `unsafe impl`; it upholds the
-/// safety contract below automatically for field-less enums.
+/// Prefer `#[derive(Enumerable)]` over a hand-written `unsafe impl`;
+/// it upholds the safety contract below automatically for field-less enums.
 ///
 /// # Safety
 ///
-/// Implementors must guarantee that `Self` has no padding bytes in its
-/// in-memory representation. Violating this is undefined behavior: this
-/// crate's byte-level comparisons ([`Self::variant_index`]'s default
-/// implementation, and every [`EnumTable`] constructor) read `Self` as raw
-/// bytes, and padding bytes may be uninitialized memory.
+/// `Self` must have no padding bytes: the default [`Self::variant_index`] and every
+/// [`EnumTable`] constructor compare `Self` by reading it as raw bytes, and padding
+/// bytes may be uninitialized memory.
 ///
-/// Implementors must also guarantee that `VARIANTS` contains every variant
-/// of `Self` exactly once, sorted in ascending order by the unsigned
-/// bit-pattern of that representation. For example, with `#[repr(i8)]`,
-/// `-1` sorts *after* `0` and `1`, since its bit pattern (`0xFF`) is
-/// numerically larger than theirs. Violating this guarantee is not
-/// undefined behavior on its own — [`EnumTable`] only ever indexes into its
-/// backing array with bounds checks — but it does silently produce wrong
-/// results: [`EnumTable::get`]/[`EnumTable::set`]/etc. return or mutate the
-/// value for the wrong variant. Every [`EnumTable`] constructor checks this
-/// guarantee at compile time (once per monomorphization of `K`) via a
-/// `const` assertion, so hand-written `unsafe impl`s that get this wrong
-/// fail to compile as soon as an `EnumTable<K, _, _>` is actually used.
+/// `VARIANTS` must list every variant of `Self` exactly once, sorted ascending by the
+/// unsigned bit-pattern of its representation (e.g. under `#[repr(i8)]`, `-1` sorts
+/// after `0` and `1`, since its bit pattern `0xFF` is the larger one). Getting this
+/// wrong is not itself undefined behavior - indexing stays bounds-checked - but makes
+/// [`EnumTable::get`]/`set`/etc. return or mutate the wrong variant's value.
+/// Every [`EnumTable`] constructor asserts this ordering at compile time.
 ///
 /// # Examples
 ///
@@ -76,12 +68,10 @@ pub unsafe trait Enumerable: Copy + 'static {
     const VARIANTS: &'static [Self];
     const COUNT: usize = Self::VARIANTS.len();
 
-    /// Returns the index of this variant within `VARIANTS`.
+    /// Returns the index of this variant within [`Self::VARIANTS`].
     ///
-    /// The default implementation performs an O(log N) binary search.
-    /// `#[derive(Enumerable)]` overrides it with a compile-time-computed
-    /// constant per variant, giving O(1) access for dense, sequential
-    /// discriminants and a comparison tree for sparse or custom ones.
+    /// The default implementation runs an O(log N) binary search;
+    /// `#[derive(Enumerable)]` overrides it with a compile-time match.
     fn variant_index(&self) -> usize {
         intrinsics::binary_search_index::<Self>(self)
     }
@@ -89,10 +79,8 @@ pub unsafe trait Enumerable: Copy + 'static {
 
 /// A fixed-size table holding one `V` per variant of `K`.
 ///
-/// Because a value is guaranteed to exist for every variant, [`Self::get`]
-/// returns `&V` directly, unlike [`std::collections::HashMap::get`], which
-/// returns `Option<&V>`. To represent a value that may be absent, use
-/// `EnumTable<K, Option<V>, N>`; see [`Self::new_fill_with_default`].
+/// A value always exists for every variant, so [`Self::get`] returns `&V` directly
+/// rather than `Option<&V>`; use `EnumTable<K, Option<V>, N>` to allow an absent value.
 ///
 /// # Examples
 ///
@@ -152,9 +140,6 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
     /// Creates a new `EnumTable` by applying `f` to each variant of `K`,
     /// stopping at the first `Err`.
     ///
-    /// To also learn which variant `f` failed on, capture it in `E`, e.g.
-    /// `try_new_with_fn(|k| f(k).map_err(|e| (k, e)))`.
-    ///
     /// # Examples
     ///
     /// ```rust
@@ -184,45 +169,68 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
 
     /// Creates a new `EnumTable` by applying `f` to each variant of `K`,
     /// stopping at the first `None`.
-    pub fn checked_new_with_fn(mut f: impl FnMut(K) -> Option<V>) -> Option<Self> {
-        Self::try_new_with_fn(|k| f(k).ok_or(())).ok()
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use enum_table::{EnumTable, Enumerable};
+    ///
+    /// #[derive(Enumerable, Copy, Clone)]
+    /// enum Color {
+    ///     Red,
+    ///     Green,
+    ///     Blue,
+    /// }
+    ///
+    /// let table = EnumTable::<Color, &'static str, { Color::COUNT }>::checked_from_fn(
+    ///     |color| match color {
+    ///         Color::Red => Some("Red"),
+    ///         Color::Green => None,
+    ///         Color::Blue => Some("Blue"),
+    ///     },
+    /// );
+    ///
+    /// assert!(table.is_none());
+    /// ```
+    pub fn checked_from_fn(mut f: impl FnMut(K) -> Option<V>) -> Option<Self> {
+        Self::try_from_fn(|k| f(k).ok_or(())).ok()
     }
 
-    /// Returns a reference to the value associated with `variant`, via O(1) lookup.
+    /// Returns a reference to the value associated with `variant`.
     pub fn get(&self, variant: K) -> &V {
         &self.table[variant.variant_index()]
     }
 
-    /// Returns a mutable reference to the value associated with `variant`, via O(1) lookup.
+    /// Returns a mutable reference to the value associated with `variant`.
     pub fn get_mut(&mut self, variant: K) -> &mut V {
         &mut self.table[variant.variant_index()]
     }
 
-    /// Sets the value associated with `variant`, via O(1) lookup, and returns the old value.
+    /// Replaces the value associated with `variant`, returning the previous value.
     pub fn set(&mut self, variant: K, value: V) -> V {
         core::mem::replace(&mut self.table[variant.variant_index()], value)
     }
 
-    /// `const fn` equivalent of [`Self::get`], using O(log N) binary search instead of O(1) lookup.
+    /// `const fn` equivalent of [`Self::get`].
     pub const fn get_const(&self, variant: K) -> &V {
         let idx = intrinsics::binary_search_index::<K>(&variant);
         &self.table[idx]
     }
 
-    /// `const fn` equivalent of [`Self::get_mut`], using O(log N) binary search instead of O(1) lookup.
+    /// `const fn` equivalent of [`Self::get_mut`].
     pub const fn get_mut_const(&mut self, variant: K) -> &mut V {
         let idx = intrinsics::binary_search_index::<K>(&variant);
         &mut self.table[idx]
     }
 
-    /// `const fn` equivalent of [`Self::set`], using O(log N) binary search instead of O(1) lookup.
+    /// `const fn` equivalent of [`Self::set`].
     pub const fn set_const(&mut self, variant: K, value: V) -> V {
         let idx = intrinsics::binary_search_index::<K>(&variant);
         core::mem::replace(&mut self.table[idx], value)
     }
 
-    /// Combines `self` and `other` into a new table by applying `f` to each pair of values
-    /// sharing a variant.
+    /// Combines `self` and `other` into a new table by applying `f` to each variant
+    /// and its two values.
     ///
     /// # Examples
     ///
@@ -337,7 +345,7 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
 }
 
 impl<K: Enumerable, V: Copy, const N: usize> EnumTable<K, V, N> {
-    /// Creates a new `EnumTable` with `value` copied for every variant.
+    /// Creates a new `EnumTable` with `value` copied into every slot.
     ///
     /// # Examples
     ///
@@ -363,18 +371,18 @@ impl<K: Enumerable, V: Copy, const N: usize> EnumTable<K, V, N> {
 }
 
 impl<K: Enumerable, V: Default, const N: usize> EnumTable<K, V, N> {
-    /// Creates a new `EnumTable` with `V::default()` for every variant.
+    /// Creates a new `EnumTable` with `V::default()` in every slot.
     pub fn new_fill_with_default() -> Self {
         Self::new(core::array::from_fn(|_| V::default()))
     }
 
-    /// Clears the table, setting each value to its default.
+    /// Resets every value in the table to `V::default()`.
     pub fn clear(&mut self) {
         self.table.fill_with(V::default);
     }
 
-    /// Replaces the value associated with `variant` with its default,
-    /// and returns the old value.
+    /// Replaces the value associated with `variant` with `V::default()`,
+    /// returning the previous value.
     pub fn take(&mut self, variant: K) -> V {
         core::mem::take(&mut self.table[variant.variant_index()])
     }
@@ -561,9 +569,9 @@ mod tests {
         });
 
         let mapped = table.map(|key, value| match key {
-            Color::Red => value + 10,   // 1 + 10 = 11
-            Color::Green => value + 20, // 2 + 20 = 22
-            Color::Blue => value + 30,  // 3 + 30 = 33
+            Color::Red => value + 10,
+            Color::Green => value + 20,
+            Color::Blue => value + 30,
         });
 
         assert_eq!(mapped.get(Color::Red), &11);
