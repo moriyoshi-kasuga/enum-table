@@ -25,7 +25,6 @@ pub struct EnumTableBuilder<K: Enumerable, V, const N: usize> {
 
 impl<K: Enumerable, V, const N: usize> EnumTableBuilder<K, V, N> {
     /// Creates a new, empty `EnumTableBuilder`.
-    #[allow(clippy::new_without_default)]
     pub const fn new() -> Self {
         Self {
             idx: 0,
@@ -94,5 +93,11 @@ impl<K: Enumerable, V, const N: usize> EnumTableBuilder<K, V, N> {
     /// The caller must ensure that all `N` variants have been pushed to the builder.
     pub const unsafe fn build_to_unchecked(self) -> EnumTable<K, V, N> {
         EnumTable::new(unsafe { self.build_unchecked() })
+    }
+}
+
+impl<K: Enumerable, V, const N: usize> Default for EnumTableBuilder<K, V, N> {
+    fn default() -> Self {
+        Self::new()
     }
 }
