@@ -1,0 +1,5 @@
+error: Enumerable cannot be derived for generic enums
+ --> tests/compile_fail/generic.rs:4:13
+  |
+4 | enum Generic<T> {
+  |             ^^^

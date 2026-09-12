@@ -1,17 +1,18 @@
-use proc_macro2::TokenStream;
-use quote::quote;
-use syn::Data;
-use syn::Result;
-use syn::{DeriveInput, parse_macro_input};
-
 #[proc_macro_derive(Enumerable)]
 pub fn derive_enumerable(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    derive_enumerable_internal(parse_macro_input!(input as DeriveInput))
+    derive_enumerable_internal(syn::parse_macro_input!(input as syn::DeriveInput))
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
 
-fn derive_enumerable_internal(input: DeriveInput) -> Result<TokenStream> {
+fn derive_enumerable_internal(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
+    let syn::Data::Enum(data_enum) = &input.data else {
+        return Err(syn::Error::new_spanned(
+            &input,
+            "Enumerable can only be derived for enums",
+        ));
+    };
+
     if !input.generics.params.is_empty() {
         return Err(syn::Error::new_spanned(
             &input.generics,
@@ -19,24 +20,14 @@ fn derive_enumerable_internal(input: DeriveInput) -> Result<TokenStream> {
         ));
     }
 
-    if repr_has_align(&input.attrs)? {
+    if repr_align(&input.attrs)?.is_some() {
         return Err(syn::Error::new_spanned(
             &input,
-            "Enumerable cannot be derived for enums with `#[repr(align(N))]`: an alignment \
-             larger than the discriminant's natural size can add trailing padding bytes \
-             that this crate's byte-level comparisons would read as uninitialized memory. \
-             Since checking whether a specific `N` actually does so would require \
-             duplicating the compiler's layout rules, `align(...)` is rejected \
-             unconditionally",
+            "Enumerable cannot be derived for enums with `#[repr(align(N))]`: alignment \
+             padding could be read as uninitialized memory by this crate's byte-level \
+             comparisons",
         ));
     }
-
-    let Data::Enum(data_enum) = input.data else {
-        return Err(syn::Error::new_spanned(
-            &input,
-            "Enumerable can only be derived for enums",
-        ));
-    };
 
     let variant_idents = data_enum
         .variants
@@ -50,15 +41,13 @@ fn derive_enumerable_internal(input: DeriveInput) -> Result<TokenStream> {
             }
             Ok(&v.ident)
         })
-        .collect::<Result<Vec<_>>>()?;
+        .collect::<syn::Result<Vec<_>>>()?;
 
     let ident = &input.ident;
-    let expanded = quote! {
-        // SAFETY: `#variant_idents` lists every variant of `#ident` exactly
-        // once, this enum has no fields (checked above) and therefore no
-        // padding bytes, and `sort_variants` produces a `VARIANTS` array
-        // sorted by the unsigned bit-pattern of each variant, as required by
-        // `enum_table::Enumerable`'s safety contract.
+    let expanded = quote::quote! {
+        // SAFETY: `#variant_idents` covers every variant of `#ident` exactly once;
+        // unit variants and the absence of `#[repr(align(N))]` (checked above) rule
+        // out padding; and `sort_variants` sorts `VARIANTS` by unsigned bit-pattern.
         unsafe impl enum_table::Enumerable for #ident {
             const VARIANTS: &'static [#ident] = &unsafe {
                 enum_table::__private::sort_variants([#(Self::#variant_idents),*])
@@ -82,32 +71,21 @@ fn derive_enumerable_internal(input: DeriveInput) -> Result<TokenStream> {
     Ok(expanded)
 }
 
-/// Returns `true` if any `#[repr(...)]` attribute on `attrs` contains an `align(N)` item.
-fn repr_has_align(attrs: &[syn::Attribute]) -> Result<bool> {
+fn repr_align(attrs: &[syn::Attribute]) -> syn::Result<Option<usize>> {
+    let mut align = None::<usize>;
     for attr in attrs {
-        if !attr.path().is_ident("repr") {
-            continue;
-        }
-
-        let mut has_align = false;
-        attr.parse_nested_meta(|meta| {
-            if meta.path.is_ident("align") {
-                has_align = true;
-            }
-            // `align(N)` carries a parenthesized value that we must consume
-            // ourselves, otherwise `parse_nested_meta` errors on the leftover
-            // tokens; we only care whether `align` is present, not its value.
-            if meta.input.peek(syn::token::Paren) {
-                let content;
-                syn::parenthesized!(content in meta.input);
-                let _ = content.parse::<proc_macro2::TokenStream>();
-            }
-            Ok(())
-        })?;
-
-        if has_align {
-            return Ok(true);
+        if attr.path().is_ident("repr") {
+            attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("align") {
+                    let content;
+                    syn::parenthesized!(content in meta.input);
+                    let lit: syn::LitInt = content.parse()?;
+                    let n: usize = lit.base10_parse()?;
+                    align = Some(n);
+                }
+                Ok(())
+            })?;
         }
     }
-    Ok(false)
+    Ok(align)
 }
