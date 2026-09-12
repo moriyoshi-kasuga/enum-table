@@ -205,10 +205,7 @@ let result = EnumTable::<Color, &'static str, { Color::VARIANTS.len() }>::try_ne
     }
 );
 
-assert!(result.is_err());
-let (variant, error) = result.unwrap_err();
-assert_eq!(variant, Color::Green);
-assert_eq!(error, "Failed to get value for Green");
+assert_eq!(result, Err("Failed to get value for Green"));
 ```
 
 For other construction methods, such as creating a table from existing data structures,

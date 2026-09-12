@@ -152,6 +152,9 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
     /// Creates a new `EnumTable` by applying `f` to each variant of `K`,
     /// stopping at the first `Err`.
     ///
+    /// To also learn which variant `f` failed on, capture it in `E`, e.g.
+    /// `try_new_with_fn(|k| f(k).map_err(|e| (k, e)))`.
+    ///
     /// # Examples
     ///
     /// ```rust
@@ -172,22 +175,17 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
     ///     },
     /// );
     ///
-    /// let (variant, error) = result.unwrap_err();
-    /// assert_eq!(variant, Color::Green);
-    /// assert_eq!(error, "Failed to get value for Green");
+    /// assert_eq!(result, Err("Failed to get value for Green"));
     /// ```
-    pub fn try_new_with_fn<E>(mut f: impl FnMut(K) -> Result<V, E>) -> Result<Self, (K, E)> {
-        let table = intrinsics::try_collect_array(|i| {
-            let variant = K::VARIANTS[i];
-            f(variant).map_err(|e| (variant, e))
-        })?;
+    pub fn try_new_with_fn<E>(mut f: impl FnMut(K) -> Result<V, E>) -> Result<Self, E> {
+        let table = intrinsics::try_collect_array(|i| f(K::VARIANTS[i]))?;
         Ok(Self::new(table))
     }
 
     /// Creates a new `EnumTable` by applying `f` to each variant of `K`,
     /// stopping at the first `None`.
-    pub fn checked_new_with_fn(mut f: impl FnMut(K) -> Option<V>) -> Result<Self, K> {
-        Self::try_new_with_fn(|k| f(k).ok_or(())).map_err(|(k, ())| k)
+    pub fn checked_new_with_fn(mut f: impl FnMut(K) -> Option<V>) -> Option<Self> {
+        Self::try_new_with_fn(|k| f(k).ok_or(())).ok()
     }
 
     /// Returns a reference to the value associated with `variant`, via O(1) lookup.
@@ -440,11 +438,7 @@ mod tests {
             },
         );
 
-        assert!(error_table.is_err());
-        let (variant, error) = error_table.unwrap_err();
-
-        assert_eq!(variant, Color::Green);
-        assert_eq!(error, "Error on Green");
+        assert_eq!(error_table, Err("Error on Green"));
     }
 
     #[test]
@@ -458,14 +452,14 @@ mod tests {
                 }
             });
 
-        assert!(table.is_ok());
+        assert!(table.is_some());
         let table = table.unwrap();
 
         assert_eq!(table.get(Color::Red), &"Red");
         assert_eq!(table.get(Color::Green), &"Green");
         assert_eq!(table.get(Color::Blue), &"Blue");
 
-        let error_table =
+        let none_table =
             EnumTable::<Color, &'static str, { Color::COUNT }>::checked_new_with_fn(|color| {
                 match color {
                     Color::Red => Some("Red"),
@@ -474,10 +468,7 @@ mod tests {
                 }
             });
 
-        assert!(error_table.is_err());
-        let variant = error_table.unwrap_err();
-
-        assert_eq!(variant, Color::Green);
+        assert!(none_table.is_none());
     }
 
     #[test]
