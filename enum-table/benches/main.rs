@@ -16,7 +16,7 @@ enum Letter {
 
 const LEN: usize = Letter::COUNT;
 
-fn value_for(letter: &Letter) -> &'static str {
+fn value_for(letter: Letter) -> &'static str {
     match letter {
         Letter::A => "Alpha",
         Letter::B => "Bravo",
@@ -35,7 +35,7 @@ fn new_table() -> EnumTable<Letter, &'static str, LEN> {
 fn new_hash_map() -> HashMap<Letter, &'static str> {
     Letter::VARIANTS
         .iter()
-        .map(|l| (*l, value_for(l)))
+        .map(|l| (*l, value_for(*l)))
         .collect()
 }
 

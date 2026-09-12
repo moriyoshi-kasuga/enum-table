@@ -17,7 +17,7 @@ with compile-time safety and constant-time access (O(1)).
 `EnumTable<K, V, N>` guarantees a value for every variant of `K`. Because of that
 guarantee, `EnumTable::get` returns `&V` directly, unlike `HashMap::get`, which must
 return `Option<&V>` since a key may or may not be present. If a value can legitimately
-be absent, use `EnumTable<K, Option<V>, N>` instead; see `EnumTable::new_fill_with_none`.
+be absent, use `EnumTable<K, Option<V>, N>` instead; see `EnumTable::new_fill_with_default`.
 
 - **vs. `HashMap<K, V>`**: no heap allocation for the table structure, better cache
   locality, and constructible in a `const` context. The core has no dependency on
@@ -227,16 +227,14 @@ For complete API documentation, visit [EnumTable on doc.rs](https://docs.rs/enum
 - `EnumTable::get()`: Access the value for a specific enum variant (O(1)).
 - `EnumTable::get_mut()`: Get mutable access to a value (O(1)).
 - `EnumTable::set()`: Update a value and return the old one (O(1)).
-- `EnumTable::as_slice()`: Access the underlying values as a slice.
-- `EnumTable::into_array()`: Consume the table and get the underlying array.
 
 ### Transformation
 
-- `map()`: Transforms all values in the table.
-- `map_mut()`: Transforms all values in the table in-place.
-- `map_with_key()`: Transforms values using both the key and value.
-- `map_mut_with_key()`: Transforms values in-place using both the key and value.
-- `zip()`: Combines two tables element-wise using a function.
+- `map()`: Transforms all values in the table, given each key and value.
+- `map_mut()`: Transforms all values in the table in-place, given each key and value.
+- `zip()`: Combines two tables element-wise using a function, given each key and both values.
+- `clear()`: Resets every value to its `Default` (requires `V: Default`).
+- `take()`: Replaces a value with its `Default` and returns the old value (requires `V: Default`).
 
 ### Iterators
 

@@ -92,7 +92,7 @@ pub unsafe trait Enumerable: Copy + 'static {
 /// Because a value is guaranteed to exist for every variant, [`Self::get`]
 /// returns `&V` directly, unlike [`std::collections::HashMap::get`], which
 /// returns `Option<&V>`. To represent a value that may be absent, use
-/// `EnumTable<K, Option<V>, N>`; see [`Self::new_fill_with_none`].
+/// `EnumTable<K, Option<V>, N>`; see [`Self::new_fill_with_default`].
 ///
 /// # Examples
 ///
@@ -145,14 +145,12 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
     }
 
     /// Creates a new `EnumTable` by applying `f` to each variant of `K`.
-    ///
-    /// For construction in a `const` context, use the [`crate::et`] macro instead.
-    pub fn new_with_fn(mut f: impl FnMut(&K) -> V) -> Self {
-        Self::new(core::array::from_fn(|i| f(&K::VARIANTS[i])))
+    pub fn new_with_fn(mut f: impl FnMut(K) -> V) -> Self {
+        Self::new(core::array::from_fn(|i| f(K::VARIANTS[i])))
     }
 
-    /// Creates a new `EnumTable` by applying `f` to each variant of `K`, stopping at the
-    /// first `Err`.
+    /// Creates a new `EnumTable` by applying `f` to each variant of `K`,
+    /// stopping at the first `Err`.
     ///
     /// # Examples
     ///
@@ -178,22 +176,18 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
     /// assert_eq!(variant, Color::Green);
     /// assert_eq!(error, "Failed to get value for Green");
     /// ```
-    pub fn try_new_with_fn<E>(mut f: impl FnMut(&K) -> Result<V, E>) -> Result<Self, (K, E)> {
+    pub fn try_new_with_fn<E>(mut f: impl FnMut(K) -> Result<V, E>) -> Result<Self, (K, E)> {
         let table = intrinsics::try_collect_array(|i| {
-            let variant = &K::VARIANTS[i];
-            f(variant).map_err(|e| (*variant, e))
+            let variant = K::VARIANTS[i];
+            f(variant).map_err(|e| (variant, e))
         })?;
         Ok(Self::new(table))
     }
 
     /// Creates a new `EnumTable` by applying `f` to each variant of `K`,
     /// stopping at the first `None`.
-    pub fn checked_new_with_fn(mut f: impl FnMut(&K) -> Option<V>) -> Result<Self, K> {
-        let table = intrinsics::try_collect_array(|i| {
-            let variant = &K::VARIANTS[i];
-            f(variant).ok_or(*variant)
-        })?;
-        Ok(Self::new(table))
+    pub fn checked_new_with_fn(mut f: impl FnMut(K) -> Option<V>) -> Result<Self, K> {
+        Self::try_new_with_fn(|k| f(k).ok_or(())).map_err(|(k, ())| k)
     }
 
     /// Creates a new `EnumTable` from `pairs`, or returns `None` if it doesn't contain
@@ -245,37 +239,6 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
         core::mem::replace(&mut self.table[idx], value)
     }
 
-    /// Returns the number of entries in the table (equal to the number of enum variants).
-    pub const fn len(&self) -> usize {
-        N
-    }
-
-    /// Returns `true` if the table has no entries (i.e., the enum has no variants).
-    pub const fn is_empty(&self) -> bool {
-        N == 0
-    }
-
-    /// Returns a reference to the underlying array of values.
-    ///
-    /// Values are ordered according to [`Enumerable::VARIANTS`].
-    pub const fn as_slice(&self) -> &[V] {
-        &self.table
-    }
-
-    /// Returns a mutable reference to the underlying array of values.
-    ///
-    /// Values are ordered according to [`Enumerable::VARIANTS`].
-    pub const fn as_mut_slice(&mut self) -> &mut [V] {
-        &mut self.table
-    }
-
-    /// Consumes the table and returns the underlying array of values.
-    ///
-    /// Values are ordered according to [`Enumerable::VARIANTS`].
-    pub fn into_array(self) -> [V; N] {
-        self.table
-    }
-
     /// Combines `self` and `other` into a new table by applying `f` to each pair of values
     /// sharing a variant.
     ///
@@ -302,7 +265,7 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
     ///     Stat::Defense => 5,
     /// });
     ///
-    /// let total = base.zip(bonus, |a, b| a + b);
+    /// let total = base.zip(bonus, |_stat, a, b| a + b);
     /// assert_eq!(total.get(&Stat::Hp), &120);
     /// assert_eq!(total.get(&Stat::Attack), &60);
     /// assert_eq!(total.get(&Stat::Defense), &35);
@@ -310,13 +273,16 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
     pub fn zip<U, W>(
         self,
         other: EnumTable<K, U, N>,
-        mut f: impl FnMut(V, U) -> W,
+        mut f: impl FnMut(K, V, U) -> W,
     ) -> EnumTable<K, W, N> {
         let mut other_iter = other.table.into_iter();
+        let mut i = 0;
         EnumTable::new(self.table.map(|v| {
             // SAFETY: both arrays have exactly N elements, and map calls this exactly N times
             let u = unsafe { other_iter.next().unwrap_unchecked() };
-            f(v, u)
+            let key = K::VARIANTS[i];
+            i += 1;
+            f(key, v, u)
         }))
     }
 
@@ -340,21 +306,16 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
     ///     Size::Large => 3,
     /// });
     ///
-    /// let doubled = table.map(|value| value * 2);
+    /// let doubled = table.map(|_size, value| value * 2);
     ///
     /// assert_eq!(doubled.get(&Size::Small), &2);
     /// assert_eq!(doubled.get(&Size::Medium), &4);
     /// assert_eq!(doubled.get(&Size::Large), &6);
     /// ```
-    pub fn map<U>(self, f: impl FnMut(V) -> U) -> EnumTable<K, U, N> {
-        EnumTable::new(self.table.map(f))
-    }
-
-    /// Like [`Self::map`], but `f` also receives a reference to each value's variant.
-    pub fn map_with_key<U>(self, mut f: impl FnMut(&K, V) -> U) -> EnumTable<K, U, N> {
+    pub fn map<U>(self, mut f: impl FnMut(K, V) -> U) -> EnumTable<K, U, N> {
         let mut i = 0;
         EnumTable::new(self.table.map(|value| {
-            let key = &K::VARIANTS[i];
+            let key = K::VARIANTS[i];
             i += 1;
             f(key, value)
         }))
@@ -380,46 +341,16 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
     ///     Level::High => 30,
     /// });
     ///
-    /// table.map_mut(|value| *value += 5);
+    /// table.map_mut(|_level, value| *value += 5);
     ///
     /// assert_eq!(table.get(&Level::Low), &15);
     /// assert_eq!(table.get(&Level::Medium), &25);
     /// assert_eq!(table.get(&Level::High), &35);
     /// ```
-    pub fn map_mut(&mut self, f: impl FnMut(&mut V)) {
-        self.table.iter_mut().for_each(f);
-    }
-
-    /// Like [`Self::map_mut`], but `f` also receives a reference to each value's variant.
-    pub fn map_mut_with_key(&mut self, mut f: impl FnMut(&K, &mut V)) {
+    pub fn map_mut(&mut self, mut f: impl FnMut(K, &mut V)) {
         self.table.iter_mut().enumerate().for_each(|(i, value)| {
-            f(&K::VARIANTS[i], value);
+            f(K::VARIANTS[i], value);
         });
-    }
-}
-
-impl<K: Enumerable, V, const N: usize> EnumTable<K, Option<V>, N> {
-    /// Creates a new `EnumTable` with `None` values for each variant.
-    pub const fn new_fill_with_none() -> Self {
-        Self::new([const { None }; N])
-    }
-
-    /// Clears the table, setting each value to `None`.
-    pub fn clear_to_none(&mut self) {
-        for value in &mut self.table {
-            *value = None;
-        }
-    }
-
-    /// Takes the value associated with `variant`, via O(1) lookup, leaving `None` in its place.
-    pub fn remove(&mut self, variant: &K) -> Option<V> {
-        self.table[variant.variant_index()].take()
-    }
-
-    /// `const fn` equivalent of [`Self::remove`], using O(log N) binary search instead of O(1) lookup.
-    pub const fn remove_const(&mut self, variant: &K) -> Option<V> {
-        let idx = intrinsics::binary_search_index::<K>(variant);
-        self.table[idx].take()
     }
 }
 
@@ -456,8 +387,14 @@ impl<K: Enumerable, V: Default, const N: usize> EnumTable<K, V, N> {
     }
 
     /// Clears the table, setting each value to its default.
-    pub fn clear_to_default(&mut self) {
+    pub fn clear(&mut self) {
         self.table.fill_with(V::default);
+    }
+
+    /// Replaces the value associated with `variant` with its default,
+    /// and returns the old value.
+    pub fn take(&mut self, variant: &K) -> V {
+        core::mem::take(&mut self.table[variant.variant_index()])
     }
 }
 
@@ -685,28 +622,12 @@ mod tests {
             Color::Blue => 3,
         });
 
-        let doubled = table.map(|value| value * 2);
-
-        assert_eq!(doubled.get(&Color::Red), &2);
-        assert_eq!(doubled.get(&Color::Green), &4);
-        assert_eq!(doubled.get(&Color::Blue), &6);
-    }
-
-    #[test]
-    fn map_with_key() {
-        let table = EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
-            Color::Red => 1,
-            Color::Green => 2,
-            Color::Blue => 3,
-        });
-
-        let mapped = table.map_with_key(|key, value| match key {
+        let mapped = table.map(|key, value| match key {
             Color::Red => value + 10,   // 1 + 10 = 11
             Color::Green => value + 20, // 2 + 20 = 22
             Color::Blue => value + 30,  // 3 + 30 = 33
         });
 
-        // Note: The order in the underlying table is based on discriminant value (Green, Red, Blue)
         assert_eq!(mapped.get(&Color::Red), &11);
         assert_eq!(mapped.get(&Color::Green), &22);
         assert_eq!(mapped.get(&Color::Blue), &33);
@@ -721,23 +642,7 @@ mod tests {
                 Color::Blue => 30,
             });
 
-        table.map_mut(|value| *value += 5);
-
-        assert_eq!(table.get(&Color::Red), &15);
-        assert_eq!(table.get(&Color::Green), &25);
-        assert_eq!(table.get(&Color::Blue), &35);
-    }
-
-    #[test]
-    fn map_mut_with_key() {
-        let mut table =
-            EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
-                Color::Red => 10,
-                Color::Green => 20,
-                Color::Blue => 30,
-            });
-
-        table.map_mut_with_key(|key, value| {
+        table.map_mut(|key, value| {
             *value += match key {
                 Color::Red => 1,
                 Color::Green => 2,
@@ -848,7 +753,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_option() {
+    fn take_option() {
         let mut table =
             EnumTable::<Color, Option<i32>, { Color::COUNT }>::new_with_fn(|color| match color {
                 Color::Red => Some(1),
@@ -856,29 +761,29 @@ mod tests {
                 Color::Blue => None,
             });
 
-        assert_eq!(table.remove(&Color::Red), Some(1));
+        assert_eq!(table.take(&Color::Red), Some(1));
         assert_eq!(table.get(&Color::Red), &None);
 
-        assert_eq!(table.remove(&Color::Blue), None);
+        assert_eq!(table.take(&Color::Blue), None);
         assert_eq!(table.get(&Color::Blue), &None);
     }
 
     #[test]
-    fn remove_const_option() {
-        const fn make_table() -> EnumTable<Color, Option<i32>, { Color::COUNT }> {
-            let mut table = EnumTable::new_fill_with_none();
-            table.set_const(&Color::Red, Some(42));
-            table.set_const(&Color::Green, Some(99));
-            table
-        }
+    fn take_default() {
+        let mut table =
+            EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
+                Color::Red => 1,
+                Color::Green => 2,
+                Color::Blue => 3,
+            });
 
-        let mut table = make_table();
-        assert_eq!(table.remove_const(&Color::Red), Some(42));
-        assert_eq!(table.get(&Color::Red), &None);
+        assert_eq!(table.take(&Color::Red), 1);
+        assert_eq!(table.get(&Color::Red), &0);
+        assert_eq!(table.get(&Color::Green), &2);
     }
 
     #[test]
-    fn clear_to_none() {
+    fn clear_option() {
         let mut table =
             EnumTable::<Color, Option<i32>, { Color::COUNT }>::new_with_fn(|color| match color {
                 Color::Red => Some(1),
@@ -886,35 +791,11 @@ mod tests {
                 Color::Blue => Some(3),
             });
 
-        table.clear_to_none();
+        table.clear();
 
         assert_eq!(table.get(&Color::Red), &None);
         assert_eq!(table.get(&Color::Green), &None);
         assert_eq!(table.get(&Color::Blue), &None);
-    }
-
-    #[test]
-    fn as_slice() {
-        let slice = TABLES.as_slice();
-        assert_eq!(slice.len(), 3);
-        // Values are in sorted discriminant order: Green(11), Red(33), Blue(222)
-        assert_eq!(slice[0], "Green");
-        assert_eq!(slice[1], "Red");
-        assert_eq!(slice[2], "Blue");
-    }
-
-    #[test]
-    fn as_mut_slice() {
-        let mut table = TABLES;
-        let slice = table.as_mut_slice();
-        slice[0] = "Changed Green";
-        assert_eq!(table.get(&Color::Green), &"Changed Green");
-    }
-
-    #[test]
-    fn into_array() {
-        let arr = TABLES.into_array();
-        assert_eq!(arr, ["Green", "Red", "Blue"]);
     }
 
     #[test]
@@ -930,14 +811,17 @@ mod tests {
             Color::Blue => 3,
         });
 
-        let sum = a.zip(b, |x, y| x + y as i32);
+        let sum = a.zip(b, |key, x, y| match key {
+            Color::Blue => x + y as i32 - 100, // distinguish Blue via the key
+            _ => x + y as i32,
+        });
         assert_eq!(sum.get(&Color::Red), &-9);
         assert_eq!(sum.get(&Color::Green), &-18);
-        assert_eq!(sum.get(&Color::Blue), &-27);
+        assert_eq!(sum.get(&Color::Blue), &-127);
     }
 
     #[test]
-    fn clear_to_default() {
+    fn clear_default() {
         let mut table =
             EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
                 Color::Red => 1,
@@ -945,7 +829,7 @@ mod tests {
                 Color::Blue => 3,
             });
 
-        table.clear_to_default();
+        table.clear();
 
         assert_eq!(table.get(&Color::Red), &0);
         assert_eq!(table.get(&Color::Green), &0);
