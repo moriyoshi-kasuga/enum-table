@@ -1,5 +1,0 @@
-config:
-  line-length: false
-  no-inline-html: false
-  no-trailing-spaces: false
-  no-multiple-blanks: false
