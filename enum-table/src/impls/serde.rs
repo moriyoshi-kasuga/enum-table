@@ -82,10 +82,7 @@ where
                     })
                 });
 
-                match table {
-                    Ok(arr) => Ok(EnumTable::new(arr)),
-                    Err(e) => Err(e),
-                }
+                table.map(EnumTable::new)
             }
         }
 
