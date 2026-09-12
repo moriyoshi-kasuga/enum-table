@@ -122,7 +122,7 @@ pub struct EnumTable<K: Enumerable, V, const N: usize> {
 }
 
 impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
-    pub(crate) const fn new(table: [V; N]) -> Self {
+    pub(crate) const fn assert() {
         const {
             assert!(
                 N == K::COUNT,
@@ -133,6 +133,10 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
                 "EnumTable: K::VARIANTS is not sorted in ascending order by unsigned bit-pattern. This is required by the `Enumerable` trait's safety contract; use `#[derive(Enumerable)]` instead of a hand-written `unsafe impl` to avoid this."
             );
         }
+    }
+
+    pub(crate) const fn new(table: [V; N]) -> Self {
+        const { Self::assert() };
 
         Self {
             table,
@@ -182,8 +186,8 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
         Ok(Self::new(table))
     }
 
-    /// Creates a new `EnumTable` by applying `f` to each variant of `K`, stopping at the
-    /// first `None`.
+    /// Creates a new `EnumTable` by applying `f` to each variant of `K`,
+    /// stopping at the first `None`.
     pub fn checked_new_with_fn(mut f: impl FnMut(&K) -> Option<V>) -> Result<Self, K> {
         let table = intrinsics::try_collect_array(|i| {
             let variant = &K::VARIANTS[i];
@@ -682,9 +686,9 @@ mod tests {
 
         table.map_mut_with_key(|key, value| {
             *value += match key {
-                Color::Red => 1,   // 10 + 1 = 11
-                Color::Green => 2, // 20 + 2 = 22
-                Color::Blue => 3,  // 30 + 3 = 33
+                Color::Red => 1,
+                Color::Green => 2,
+                Color::Blue => 3,
             }
         });
 
@@ -873,7 +877,7 @@ mod tests {
             Color::Blue => 3,
         });
 
-        let sum = a.zip(b, |x, y| (x + y as i32) as i8);
+        let sum = a.zip(b, |x, y| x + y as i32);
         assert_eq!(sum.get(&Color::Red), &-9);
         assert_eq!(sum.get(&Color::Green), &-18);
         assert_eq!(sum.get(&Color::Blue), &-27);
