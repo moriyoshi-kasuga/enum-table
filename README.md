@@ -12,8 +12,6 @@
 It provides a fast, type-safe, and allocation-free alternative to using `HashMap` for enum keys,
 with compile-time safety and constant-time access (O(1)).
 
-See [CHANGELOG](./CHANGELOG.md) for version history and recent updates.
-
 ## Why use `enum-table`?
 
 `EnumTable<K, V, N>` guarantees a value for every variant of `K`. Because of that
