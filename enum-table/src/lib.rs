@@ -190,22 +190,6 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
         Self::try_new_with_fn(|k| f(k).ok_or(())).map_err(|(k, ())| k)
     }
 
-    /// Creates a new `EnumTable` from `pairs`, or returns `None` if it doesn't contain
-    /// exactly one entry for each variant of `K`.
-    pub fn try_from_pairs(pairs: impl ExactSizeIterator<Item = (K, V)>) -> Option<Self> {
-        if pairs.len() != N {
-            return None;
-        }
-
-        let mut slots: [Option<V>; N] = core::array::from_fn(|_| None);
-        for (key, value) in pairs {
-            slots[key.variant_index()] = Some(value);
-        }
-
-        let table = intrinsics::try_collect_array(|i| slots[i].take().ok_or(())).ok()?;
-        Some(Self::new(table))
-    }
-
     /// Returns a reference to the value associated with `variant`, via O(1) lookup.
     pub fn get(&self, variant: K) -> &V {
         &self.table[variant.variant_index()]
@@ -494,43 +478,6 @@ mod tests {
         let variant = error_table.unwrap_err();
 
         assert_eq!(variant, Color::Green);
-    }
-
-    #[test]
-    fn try_from_pairs() {
-        let pairs = [
-            (Color::Red, "Red"),
-            (Color::Green, "Green"),
-            (Color::Blue, "Blue"),
-        ];
-
-        let table =
-            EnumTable::<Color, &str, { Color::COUNT }>::try_from_pairs(pairs.into_iter()).unwrap();
-        assert_eq!(table.get(Color::Red), &"Red");
-        assert_eq!(table.get(Color::Green), &"Green");
-        assert_eq!(table.get(Color::Blue), &"Blue");
-    }
-
-    #[test]
-    fn try_from_pairs_wrong_len() {
-        let pairs = [(Color::Red, "Red"), (Color::Green, "Green")];
-        assert_eq!(
-            EnumTable::<Color, &str, { Color::COUNT }>::try_from_pairs(pairs.into_iter()),
-            None
-        );
-    }
-
-    #[test]
-    fn try_from_pairs_duplicate_key_leaves_variant_missing() {
-        let pairs = [
-            (Color::Red, "Red"),
-            (Color::Green, "Green"),
-            (Color::Red, "Duplicate Red"),
-        ];
-        assert_eq!(
-            EnumTable::<Color, &str, { Color::COUNT }>::try_from_pairs(pairs.into_iter()),
-            None
-        );
     }
 
     #[test]
