@@ -213,10 +213,10 @@ assert_eq!(error, "Failed to get value for Green");
 
 For other construction methods, such as creating a table from existing data structures,
 see the **API Overview** section below and the full [API documentation](https://docs.rs/enum-table/latest/enum_table/struct.EnumTable.html).
-For instance, `try_from_vec()` and `try_from_hash_map()` in the **Conversions** API also
-handle missing variants.
 
 ## API Overview
+
+For complete API documentation, visit [EnumTable on doc.rs](https://docs.rs/enum-table/latest/enum_table/struct.EnumTable.html).
 
 ### Key Methods
 
@@ -245,55 +245,6 @@ handle missing variants.
 - `values()`, `values_mut()`: Iterate over values.
 - `into_iter()`: Consume the table and iterate over owned key-value pairs.
 - Implements `Extend<(K, V)>` for updating values from an iterator.
-
-### Conversions
-
-The `EnumTable` can be converted to and from other standard collections.
-
-#### From `EnumTable`
-
-- `into_vec()`: Converts the table into a `Vec<(K, V)>`.
-- `into_hash_map()`: Converts the table into a `HashMap<K, V>`.
-  Requires the enum key to implement `Eq + Hash`.
-- `into_btree_map()`: Converts the table into a `BTreeMap<K, V>`.
-  Requires the enum key to implement `Ord`.
-
-```rust
-use enum_table::{EnumTable, Enumerable};
-#[derive(Enumerable, Debug, PartialEq, Eq, Hash, Copy, Clone)] enum Color { Red, Green, Blue }
-let table = EnumTable::<Color, &'static str, 3>::new_with_fn(|c| match c {
-    Color::Red => "red", Color::Green => "green", Color::Blue => "blue",
-});
-
-let vec = table.into_vec();
-assert_eq!(vec.len(), 3);
-assert!(vec.contains(&(Color::Red, "red")));
-```
-
-#### To `EnumTable`
-
-- `try_from_vec()`: Creates a table from a `Vec<(K, V)>`.
-  Returns `None` if any variant is missing or duplicated.
-- `try_from_hash_map()`: Creates a table from a `HashMap<K, V>`.
-  Returns `None` if the map does not contain exactly one entry for each variant.
-- `try_from_btree_map()`: Creates a table from a `BTreeMap<K, V>`.
-  Returns `None` if the map does not contain exactly one entry for each variant.
-
-```rust
-use enum_table::{EnumTable, Enumerable};
-use std::collections::HashMap;
-#[derive(Enumerable, Debug, PartialEq, Eq, Hash, Copy, Clone)] enum Color { Red, Green, Blue }
-
-let mut map = HashMap::new();
-map.insert(Color::Red, 1);
-map.insert(Color::Green, 2);
-map.insert(Color::Blue, 3);
-
-let table = EnumTable::<Color, i32, 3>::try_from_hash_map(map).unwrap();
-assert_eq!(table.get(&Color::Green), &2);
-```
-
-For complete API documentation, visit [EnumTable on doc.rs](https://docs.rs/enum-table/latest/enum_table/struct.EnumTable.html).
 
 ## Performance
 
@@ -335,9 +286,6 @@ Licensed under the [MIT license](https://github.com/moriyoshi-kasuga/enum-table/
   variant once per iteration, representing a whole-table workload rather than
   a single operation.
 - **iteration**: iterating over every key-value pair.
-- **conversions**: `into_vec`/`try_from_vec` and `into_hash_map`/
-  `try_from_hash_map`, rebuilding the source fresh each iteration so only the
-  conversion itself is measured.
 
 <details>
 <summary>Benchmark results</summary>
@@ -374,15 +322,6 @@ iteration/EnumTable::iter
                         time:   [587.40 ps 587.96 ps 588.58 ps]
 iteration/HashMap::iter
                         time:   [3.8318 ns 3.8357 ns 3.8405 ns]
-
-conversions/EnumTable::into_vec
-                        time:   [43.888 ns 43.943 ns 44.005 ns]
-conversions/EnumTable::try_from_vec
-                        time:   [20.183 ns 20.328 ns 20.462 ns]
-conversions/EnumTable::into_hash_map
-                        time:   [84.923 ns 85.154 ns 85.435 ns]
-conversions/EnumTable::try_from_hash_map
-                        time:   [95.706 ns 95.871 ns 96.046 ns]
 ```
 
 </details>
