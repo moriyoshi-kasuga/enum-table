@@ -2,8 +2,8 @@
 ///
 /// The closure body must be valid in a `const` context; passing a non-`const`
 /// expression is a compile error. For a runtime equivalent, use
-/// [`crate::EnumTable::new_with_fn`], [`crate::EnumTable::try_new_with_fn`], or
-/// [`crate::EnumTable::checked_new_with_fn`] instead.
+/// [`crate::EnumTable::from_fn`], [`crate::EnumTable::try_from_fn`], or
+/// [`crate::EnumTable::checked_from_fn`] instead.
 ///
 /// # Examples
 ///

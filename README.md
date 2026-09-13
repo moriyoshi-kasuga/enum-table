@@ -17,7 +17,7 @@ with compile-time safety and constant-time access (O(1)).
 `EnumTable<K, V, N>` holds a value for every variant of `K`, so `EnumTable::get`
 returns `&V` directly instead of the `Option<&V>` that `HashMap::get` must return.
 If a value can legitimately be absent, use `EnumTable<K, Option<V>, N>` instead;
-see `EnumTable::new_fill_with_default`.
+see `EnumTable`'s `Default` implementation.
 
 - Compared to `HashMap<K, V>`: no heap allocation for the table structure, better cache
   locality, and constructible in a `const` context. The core has no dependency on
@@ -102,7 +102,7 @@ enum Test {
     C,
 }
 
-let mut table = EnumTable::<Test, &'static str, { Test::COUNT }>::new_with_fn(
+let mut table = EnumTable::<Test, &'static str, { Test::COUNT }>::from_fn(
   |t| match t {
     Test::A => "A",
     Test::B => "B",
@@ -163,7 +163,7 @@ enum Status {
     Pending,
 }
 
-let table = EnumTable::<Status, &'static str, { Status::COUNT }>::new_with_fn(|status| match status {
+let table = EnumTable::<Status, &'static str, { Status::COUNT }>::from_fn(|status| match status {
     Status::Active => "running",
     Status::Inactive => "stopped",
     Status::Pending => "waiting",
@@ -180,7 +180,7 @@ assert_eq!(table, deserialized);
 
 ### Error Handling and Alternative Constructors
 
-`try_new_with_fn` builds a table from a closure that may fail per variant, stopping at
+`try_from_fn` builds a table from a closure that may fail per variant, stopping at
 the first error:
 
 ```rust
@@ -193,7 +193,7 @@ enum Color {
     Blue,
 }
 
-let result = EnumTable::<Color, &'static str, { Color::COUNT }>::try_new_with_fn(
+let result = EnumTable::<Color, &'static str, { Color::COUNT }>::try_from_fn(
     |color| match color {
         Color::Red => Ok("Red"),
         Color::Green => Err("Failed to get value for Green"),
@@ -213,11 +213,11 @@ For complete API documentation, visit [EnumTable on doc.rs](https://docs.rs/enum
 
 ### Construction
 
-- `EnumTable::new_with_fn()`: Create a table by mapping each enum variant to a value.
-- `EnumTable::try_new_with_fn()`: Create a table from a closure that may fail, stopping at the first error.
-- `EnumTable::checked_new_with_fn()`: Create a table from a closure that may return `None`, stopping at the first `None`.
+- `EnumTable::from_fn()`: Create a table by mapping each enum variant to a value.
+- `EnumTable::try_from_fn()`: Create a table from a closure that may fail, stopping at the first error.
+- `EnumTable::checked_from_fn()`: Create a table from a closure that may return `None`, stopping at the first `None`.
 - `EnumTable::checked_from_pairs()`: Create a table from `(K, V)` pairs, or `None` if a variant is missing or duplicated.
-- `EnumTable::new_fill_with_copy()`: Create a table with the same `Copy` value for every variant.
+- `EnumTable::from_elem()`: Create a table with the same `Copy` value for every variant.
 - `EnumTable::default()`: Create a table filled with each variant's `Default` value (requires `V: Default`).
 
 ### Access
@@ -229,8 +229,8 @@ For complete API documentation, visit [EnumTable on doc.rs](https://docs.rs/enum
 ### Transformation
 
 - `map()`: Transforms all values in the table, given each key and value.
-- `map_mut()`: Transforms all values in the table in-place, given each key and value.
-- `zip()`: Combines two tables element-wise using a function, given each key and both values.
+- `for_each_mut()`: Mutates all values in the table in-place, given each key and value.
+- `zip_with()`: Combines two tables element-wise using a function, given each key and both values.
 - `clear()`: Resets every value to its `Default` (requires `V: Default`).
 - `take()`: Replaces a value with its `Default` and returns the old value (requires `V: Default`).
 
@@ -271,7 +271,7 @@ Licensed under the [MIT license](https://github.com/moriyoshi-kasuga/enum-table/
 ## Benchmarks
 
 - `construction`: building a fully populated table/map from scratch
-  (`EnumTable::new_with_fn` vs. `HashMap::new` + inserting every entry).
+  (`EnumTable::from_fn` vs. `HashMap::new` + inserting every entry).
 - `single_get` / `single_set`: a single lookup/update on one key, measured
   in isolation (also compares `get` against the `const fn` binary-search
   `get_const`).
@@ -284,7 +284,7 @@ Licensed under the [MIT license](https://github.com/moriyoshi-kasuga/enum-table/
 <summary>Benchmark results</summary>
 
 ```text
-construction/EnumTable::new_with_fn
+construction/EnumTable::from_fn
                         time:   [3.7377 ns 3.7418 ns 3.7462 ns]
 construction/HashMap (new + insert all)
                         time:   [72.319 ns 72.352 ns 72.386 ns]

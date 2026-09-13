@@ -94,7 +94,7 @@ pub unsafe trait Enumerable: Copy + 'static {
 ///     Blue,
 /// }
 ///
-/// let table = EnumTable::<Color, &'static str, { Color::COUNT }>::new_with_fn(|color| match color {
+/// let table = EnumTable::<Color, &'static str, { Color::COUNT }>::from_fn(|color| match color {
 ///     Color::Red => "Red",
 ///     Color::Green => "Green",
 ///     Color::Blue => "Blue",
@@ -133,7 +133,7 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
     }
 
     /// Creates a new `EnumTable` by applying `f` to each variant of `K`.
-    pub fn new_with_fn(mut f: impl FnMut(K) -> V) -> Self {
+    pub fn from_fn(mut f: impl FnMut(K) -> V) -> Self {
         Self::new(core::array::from_fn(|i| f(K::VARIANTS[i])))
     }
 
@@ -152,7 +152,7 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
     ///     Blue,
     /// }
     ///
-    /// let result = EnumTable::<Color, &'static str, { Color::COUNT }>::try_new_with_fn(
+    /// let result = EnumTable::<Color, &'static str, { Color::COUNT }>::try_from_fn(
     ///     |color| match color {
     ///         Color::Red => Ok("Red"),
     ///         Color::Green => Err("Failed to get value for Green"),
@@ -162,7 +162,7 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
     ///
     /// assert_eq!(result, Err("Failed to get value for Green"));
     /// ```
-    pub fn try_new_with_fn<E>(mut f: impl FnMut(K) -> Result<V, E>) -> Result<Self, E> {
+    pub fn try_from_fn<E>(mut f: impl FnMut(K) -> Result<V, E>) -> Result<Self, E> {
         let table = intrinsics::try_collect_array(|i| f(K::VARIANTS[i]))?;
         Ok(Self::new(table))
     }
@@ -244,36 +244,33 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
     ///     Defense,
     /// }
     ///
-    /// let base = EnumTable::<Stat, i32, { Stat::COUNT }>::new_with_fn(|s| match s {
+    /// let base = EnumTable::<Stat, i32, { Stat::COUNT }>::from_fn(|s| match s {
     ///     Stat::Hp => 100,
     ///     Stat::Attack => 50,
     ///     Stat::Defense => 30,
     /// });
-    /// let bonus = EnumTable::<Stat, i32, { Stat::COUNT }>::new_with_fn(|s| match s {
+    /// let bonus = EnumTable::<Stat, i32, { Stat::COUNT }>::from_fn(|s| match s {
     ///     Stat::Hp => 20,
     ///     Stat::Attack => 10,
     ///     Stat::Defense => 5,
     /// });
     ///
-    /// let total = base.zip(bonus, |_stat, a, b| a + b);
+    /// let total = base.zip_with(bonus, |_stat, a, b| a + b);
     /// assert_eq!(total.get(Stat::Hp), &120);
     /// assert_eq!(total.get(Stat::Attack), &60);
     /// assert_eq!(total.get(Stat::Defense), &35);
     /// ```
-    pub fn zip<U, W>(
+    pub fn zip_with<U, W>(
         self,
         other: EnumTable<K, U, N>,
         mut f: impl FnMut(K, V, U) -> W,
     ) -> EnumTable<K, W, N> {
         let mut other_iter = other.table.into_iter();
-        let mut i = 0;
-        EnumTable::new(self.table.map(|v| {
+        self.map(|k, v| {
             // SAFETY: both arrays have exactly N elements, and map calls this exactly N times
             let u = unsafe { other_iter.next().unwrap_unchecked() };
-            let key = K::VARIANTS[i];
-            i += 1;
-            f(key, v, u)
-        }))
+            f(k, v, u)
+        })
     }
 
     /// Consumes the table, returning a new one with each value transformed by `f`.
@@ -290,7 +287,7 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
     ///     Large,
     /// }
     ///
-    /// let table = EnumTable::<Size, i32, { Size::COUNT }>::new_with_fn(|size| match size {
+    /// let table = EnumTable::<Size, i32, { Size::COUNT }>::from_fn(|size| match size {
     ///     Size::Small => 1,
     ///     Size::Medium => 2,
     ///     Size::Large => 3,
@@ -325,19 +322,19 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
     ///     High,
     /// }
     ///
-    /// let mut table = EnumTable::<Level, i32, { Level::COUNT }>::new_with_fn(|level| match level {
+    /// let mut table = EnumTable::<Level, i32, { Level::COUNT }>::from_fn(|level| match level {
     ///     Level::Low => 10,
     ///     Level::Medium => 20,
     ///     Level::High => 30,
     /// });
     ///
-    /// table.map_mut(|_level, value| *value += 5);
+    /// table.for_each_mut(|_level, value| *value += 5);
     ///
     /// assert_eq!(table.get(Level::Low), &15);
     /// assert_eq!(table.get(Level::Medium), &25);
     /// assert_eq!(table.get(Level::High), &35);
     /// ```
-    pub fn map_mut(&mut self, mut f: impl FnMut(K, &mut V)) {
+    pub fn for_each_mut(&mut self, mut f: impl FnMut(K, &mut V)) {
         self.table.iter_mut().enumerate().for_each(|(i, value)| {
             f(K::VARIANTS[i], value);
         });
@@ -359,23 +356,18 @@ impl<K: Enumerable, V: Copy, const N: usize> EnumTable<K, V, N> {
     ///     Pending,
     /// }
     ///
-    /// let table = EnumTable::<Status, i32, { Status::COUNT }>::new_fill_with_copy(42);
+    /// let table = EnumTable::<Status, i32, { Status::COUNT }>::from_elem(42);
     ///
     /// assert_eq!(table.get(Status::Active), &42);
     /// assert_eq!(table.get(Status::Inactive), &42);
     /// assert_eq!(table.get(Status::Pending), &42);
     /// ```
-    pub const fn new_fill_with_copy(value: V) -> Self {
+    pub const fn from_elem(value: V) -> Self {
         Self::new([value; N])
     }
 }
 
 impl<K: Enumerable, V: Default, const N: usize> EnumTable<K, V, N> {
-    /// Creates a new `EnumTable` with `V::default()` in every slot.
-    pub fn new_fill_with_default() -> Self {
-        Self::new(core::array::from_fn(|_| V::default()))
-    }
-
     /// Resets every value in the table to `V::default()`.
     pub fn clear(&mut self) {
         self.table.fill_with(V::default);
@@ -407,9 +399,9 @@ mod tests {
         });
 
     #[test]
-    fn new_with_fn() {
+    fn from_fn() {
         let table =
-            EnumTable::<Color, &'static str, { Color::COUNT }>::new_with_fn(|color| match color {
+            EnumTable::<Color, &'static str, { Color::COUNT }>::from_fn(|color| match color {
                 Color::Red => "Red",
                 Color::Green => "Green",
                 Color::Blue => "Blue",
@@ -421,9 +413,9 @@ mod tests {
     }
 
     #[test]
-    fn try_new_with_fn() {
+    fn try_from_fn() {
         let table =
-            EnumTable::<Color, &'static str, { Color::COUNT }>::try_new_with_fn(
+            EnumTable::<Color, &'static str, { Color::COUNT }>::try_from_fn(
                 |color| match color {
                     Color::Red => Ok::<&'static str, core::convert::Infallible>("Red"),
                     Color::Green => Ok("Green"),
@@ -438,7 +430,7 @@ mod tests {
         assert_eq!(table.get(Color::Green), &"Green");
         assert_eq!(table.get(Color::Blue), &"Blue");
 
-        let error_table = EnumTable::<Color, &'static str, { Color::COUNT }>::try_new_with_fn(
+        let error_table = EnumTable::<Color, &'static str, { Color::COUNT }>::try_from_fn(
             |color| match color {
                 Color::Red => Ok("Red"),
                 Color::Green => Err("Error on Green"),
@@ -450,9 +442,9 @@ mod tests {
     }
 
     #[test]
-    fn checked_new_with_fn() {
+    fn checked_from_fn() {
         let table =
-            EnumTable::<Color, &'static str, { Color::COUNT }>::checked_new_with_fn(|color| {
+            EnumTable::<Color, &'static str, { Color::COUNT }>::checked_from_fn(|color| {
                 match color {
                     Color::Red => Some("Red"),
                     Color::Green => Some("Green"),
@@ -468,7 +460,7 @@ mod tests {
         assert_eq!(table.get(Color::Blue), &"Blue");
 
         let none_table =
-            EnumTable::<Color, &'static str, { Color::COUNT }>::checked_new_with_fn(|color| {
+            EnumTable::<Color, &'static str, { Color::COUNT }>::checked_from_fn(|color| {
                 match color {
                     Color::Red => Some("Red"),
                     Color::Green => None,
@@ -562,7 +554,7 @@ mod tests {
 
     #[test]
     fn map() {
-        let table = EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
+        let table = EnumTable::<Color, i32, { Color::COUNT }>::from_fn(|color| match color {
             Color::Red => 1,
             Color::Green => 2,
             Color::Blue => 3,
@@ -580,15 +572,15 @@ mod tests {
     }
 
     #[test]
-    fn map_mut() {
+    fn for_each_mut() {
         let mut table =
-            EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
+            EnumTable::<Color, i32, { Color::COUNT }>::from_fn(|color| match color {
                 Color::Red => 10,
                 Color::Green => 20,
                 Color::Blue => 30,
             });
 
-        table.map_mut(|key, value| {
+        table.for_each_mut(|key, value| {
             *value += match key {
                 Color::Red => 1,
                 Color::Green => 2,
@@ -609,7 +601,7 @@ mod tests {
                 $($variant,)*
             }
 
-            let map = EnumTable::<Test, &'static str, { Test::COUNT }>::new_with_fn(|t| match t {
+            let map = EnumTable::<Test, &'static str, { Test::COUNT }>::from_fn(|t| match t {
                 $(Test::$variant => stringify!($variant),)*
             });
             $(
@@ -653,7 +645,7 @@ mod tests {
         assert_eq!(Signed::Neg.variant_index(), 2);
 
         let table =
-            EnumTable::<Signed, &'static str, { Signed::COUNT }>::new_with_fn(|s| match s {
+            EnumTable::<Signed, &'static str, { Signed::COUNT }>::from_fn(|s| match s {
                 Signed::Neg => "neg",
                 Signed::Zero => "zero",
                 Signed::Pos => "pos",
@@ -701,7 +693,7 @@ mod tests {
     #[test]
     fn take_option() {
         let mut table =
-            EnumTable::<Color, Option<i32>, { Color::COUNT }>::new_with_fn(|color| match color {
+            EnumTable::<Color, Option<i32>, { Color::COUNT }>::from_fn(|color| match color {
                 Color::Red => Some(1),
                 Color::Green => Some(2),
                 Color::Blue => None,
@@ -717,7 +709,7 @@ mod tests {
     #[test]
     fn take_default() {
         let mut table =
-            EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
+            EnumTable::<Color, i32, { Color::COUNT }>::from_fn(|color| match color {
                 Color::Red => 1,
                 Color::Green => 2,
                 Color::Blue => 3,
@@ -731,7 +723,7 @@ mod tests {
     #[test]
     fn clear_option() {
         let mut table =
-            EnumTable::<Color, Option<i32>, { Color::COUNT }>::new_with_fn(|color| match color {
+            EnumTable::<Color, Option<i32>, { Color::COUNT }>::from_fn(|color| match color {
                 Color::Red => Some(1),
                 Color::Green => Some(2),
                 Color::Blue => Some(3),
@@ -745,19 +737,19 @@ mod tests {
     }
 
     #[test]
-    fn zip() {
-        let a = EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|c| match c {
+    fn zip_with() {
+        let a = EnumTable::<Color, i32, { Color::COUNT }>::from_fn(|c| match c {
             Color::Red => -10,
             Color::Green => -20,
             Color::Blue => -30,
         });
-        let b = EnumTable::<Color, u32, { Color::COUNT }>::new_with_fn(|c| match c {
+        let b = EnumTable::<Color, u32, { Color::COUNT }>::from_fn(|c| match c {
             Color::Red => 1,
             Color::Green => 2,
             Color::Blue => 3,
         });
 
-        let sum = a.zip(b, |key, x, y| match key {
+        let sum = a.zip_with(b, |key, x, y| match key {
             Color::Blue => x + y as i32 - 100, // distinguish Blue via the key
             _ => x + y as i32,
         });
@@ -769,7 +761,7 @@ mod tests {
     #[test]
     fn clear_default() {
         let mut table =
-            EnumTable::<Color, i32, { Color::COUNT }>::new_with_fn(|color| match color {
+            EnumTable::<Color, i32, { Color::COUNT }>::from_fn(|color| match color {
                 Color::Red => 1,
                 Color::Green => 2,
                 Color::Blue => 3,

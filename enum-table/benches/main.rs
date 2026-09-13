@@ -29,7 +29,7 @@ fn value_for(letter: Letter) -> &'static str {
 }
 
 fn new_table() -> EnumTable<Letter, &'static str, LEN> {
-    EnumTable::new_with_fn(value_for)
+    EnumTable::from_fn(value_for)
 }
 
 fn new_hash_map() -> HashMap<Letter, &'static str> {
@@ -42,7 +42,7 @@ fn new_hash_map() -> HashMap<Letter, &'static str> {
 /// Building a fully populated table/map from scratch.
 fn construction(c: &mut Criterion) {
     let mut group = c.benchmark_group("construction");
-    group.bench_function("EnumTable::new_with_fn", |b| {
+    group.bench_function("EnumTable::from_fn", |b| {
         b.iter(|| black_box(new_table()))
     });
     group.bench_function("HashMap (new + insert all)", |b| {

@@ -38,7 +38,7 @@ impl<K: Enumerable, V: core::hash::Hash, const N: usize> core::hash::Hash for En
 
 impl<K: Enumerable, V: Default, const N: usize> Default for EnumTable<K, V, N> {
     fn default() -> Self {
-        Self::new_fill_with_default()
+        Self::new(core::array::from_fn(|_| V::default()))
     }
 }
 
@@ -108,7 +108,7 @@ mod tests {
     #[test]
     fn eq_impl() {
         assert!(TABLES == ANOTHER_TABLES);
-        assert!(TABLES != EnumTable::new_with_fn(|_| "Unknown"));
+        assert!(TABLES != EnumTable::from_fn(|_| "Unknown"));
     }
 
     #[test]
