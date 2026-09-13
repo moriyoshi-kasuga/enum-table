@@ -308,6 +308,36 @@ impl<K: Enumerable, V, const N: usize> EnumTable<K, V, N> {
         }))
     }
 
+    /// Calls `f` with each variant and a reference to its value, in `K::VARIANTS` order.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use enum_table::{EnumTable, Enumerable};
+    ///
+    /// #[derive(Enumerable, Copy, Clone)]
+    /// enum Light {
+    ///     Red,
+    ///     Yellow,
+    ///     Green,
+    /// }
+    ///
+    /// let table = EnumTable::<Light, i32, { Light::COUNT }>::from_fn(|light| match light {
+    ///     Light::Red => 1,
+    ///     Light::Yellow => 2,
+    ///     Light::Green => 3,
+    /// });
+    ///
+    /// let mut sum = 0;
+    /// table.for_each(|_light, value| sum += value);
+    /// assert_eq!(sum, 6);
+    /// ```
+    pub fn for_each(&self, mut f: impl FnMut(K, &V)) {
+        self.table.iter().enumerate().for_each(|(i, value)| {
+            f(K::VARIANTS[i], value);
+        });
+    }
+
     /// Transforms each value in the table in place via `f`.
     ///
     /// # Examples
@@ -415,13 +445,11 @@ mod tests {
     #[test]
     fn try_from_fn() {
         let table =
-            EnumTable::<Color, &'static str, { Color::COUNT }>::try_from_fn(
-                |color| match color {
-                    Color::Red => Ok::<&'static str, core::convert::Infallible>("Red"),
-                    Color::Green => Ok("Green"),
-                    Color::Blue => Ok("Blue"),
-                },
-            );
+            EnumTable::<Color, &'static str, { Color::COUNT }>::try_from_fn(|color| match color {
+                Color::Red => Ok::<&'static str, core::convert::Infallible>("Red"),
+                Color::Green => Ok("Green"),
+                Color::Blue => Ok("Blue"),
+            });
 
         assert!(table.is_ok());
         let table = table.unwrap();
@@ -430,13 +458,12 @@ mod tests {
         assert_eq!(table.get(Color::Green), &"Green");
         assert_eq!(table.get(Color::Blue), &"Blue");
 
-        let error_table = EnumTable::<Color, &'static str, { Color::COUNT }>::try_from_fn(
-            |color| match color {
+        let error_table =
+            EnumTable::<Color, &'static str, { Color::COUNT }>::try_from_fn(|color| match color {
                 Color::Red => Ok("Red"),
                 Color::Green => Err("Error on Green"),
                 Color::Blue => Ok("Blue"),
-            },
-        );
+            });
 
         assert_eq!(error_table, Err("Error on Green"));
     }
@@ -444,13 +471,13 @@ mod tests {
     #[test]
     fn checked_from_fn() {
         let table =
-            EnumTable::<Color, &'static str, { Color::COUNT }>::checked_from_fn(|color| {
-                match color {
+            EnumTable::<Color, &'static str, { Color::COUNT }>::checked_from_fn(
+                |color| match color {
                     Color::Red => Some("Red"),
                     Color::Green => Some("Green"),
                     Color::Blue => Some("Blue"),
-                }
-            });
+                },
+            );
 
         assert!(table.is_some());
         let table = table.unwrap();
@@ -459,14 +486,13 @@ mod tests {
         assert_eq!(table.get(Color::Green), &"Green");
         assert_eq!(table.get(Color::Blue), &"Blue");
 
-        let none_table =
-            EnumTable::<Color, &'static str, { Color::COUNT }>::checked_from_fn(|color| {
-                match color {
-                    Color::Red => Some("Red"),
-                    Color::Green => None,
-                    Color::Blue => Some("Blue"),
-                }
-            });
+        let none_table = EnumTable::<Color, &'static str, { Color::COUNT }>::checked_from_fn(
+            |color| match color {
+                Color::Red => Some("Red"),
+                Color::Green => None,
+                Color::Blue => Some("Blue"),
+            },
+        );
 
         assert!(none_table.is_none());
     }
@@ -573,12 +599,11 @@ mod tests {
 
     #[test]
     fn for_each_mut() {
-        let mut table =
-            EnumTable::<Color, i32, { Color::COUNT }>::from_fn(|color| match color {
-                Color::Red => 10,
-                Color::Green => 20,
-                Color::Blue => 30,
-            });
+        let mut table = EnumTable::<Color, i32, { Color::COUNT }>::from_fn(|color| match color {
+            Color::Red => 10,
+            Color::Green => 20,
+            Color::Blue => 30,
+        });
 
         table.for_each_mut(|key, value| {
             *value += match key {
@@ -644,12 +669,11 @@ mod tests {
         assert_eq!(Signed::Pos.variant_index(), 1);
         assert_eq!(Signed::Neg.variant_index(), 2);
 
-        let table =
-            EnumTable::<Signed, &'static str, { Signed::COUNT }>::from_fn(|s| match s {
-                Signed::Neg => "neg",
-                Signed::Zero => "zero",
-                Signed::Pos => "pos",
-            });
+        let table = EnumTable::<Signed, &'static str, { Signed::COUNT }>::from_fn(|s| match s {
+            Signed::Neg => "neg",
+            Signed::Zero => "zero",
+            Signed::Pos => "pos",
+        });
 
         assert_eq!(table.get(Signed::Neg), &"neg");
         assert_eq!(table.get(Signed::Zero), &"zero");
@@ -708,12 +732,11 @@ mod tests {
 
     #[test]
     fn take_default() {
-        let mut table =
-            EnumTable::<Color, i32, { Color::COUNT }>::from_fn(|color| match color {
-                Color::Red => 1,
-                Color::Green => 2,
-                Color::Blue => 3,
-            });
+        let mut table = EnumTable::<Color, i32, { Color::COUNT }>::from_fn(|color| match color {
+            Color::Red => 1,
+            Color::Green => 2,
+            Color::Blue => 3,
+        });
 
         assert_eq!(table.take(Color::Red), 1);
         assert_eq!(table.get(Color::Red), &0);
@@ -760,12 +783,11 @@ mod tests {
 
     #[test]
     fn clear_default() {
-        let mut table =
-            EnumTable::<Color, i32, { Color::COUNT }>::from_fn(|color| match color {
-                Color::Red => 1,
-                Color::Green => 2,
-                Color::Blue => 3,
-            });
+        let mut table = EnumTable::<Color, i32, { Color::COUNT }>::from_fn(|color| match color {
+            Color::Red => 1,
+            Color::Green => 2,
+            Color::Blue => 3,
+        });
 
         table.clear();
 

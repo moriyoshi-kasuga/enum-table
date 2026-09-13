@@ -42,9 +42,7 @@ fn new_hash_map() -> HashMap<Letter, &'static str> {
 /// Building a fully populated table/map from scratch.
 fn construction(c: &mut Criterion) {
     let mut group = c.benchmark_group("construction");
-    group.bench_function("EnumTable::from_fn", |b| {
-        b.iter(|| black_box(new_table()))
-    });
+    group.bench_function("EnumTable::from_fn", |b| b.iter(|| black_box(new_table())));
     group.bench_function("HashMap (new + insert all)", |b| {
         b.iter(|| black_box(new_hash_map()))
     });

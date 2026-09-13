@@ -229,6 +229,7 @@ For complete API documentation, visit [EnumTable on doc.rs](https://docs.rs/enum
 ### Transformation
 
 - `map()`: Transforms all values in the table, given each key and value.
+- `for_each()`: Calls a function with each key and a reference to its value.
 - `for_each_mut()`: Mutates all values in the table in-place, given each key and value.
 - `zip_with()`: Combines two tables element-wise using a function, given each key and both values.
 - `clear()`: Resets every value to its `Default` (requires `V: Default`).
