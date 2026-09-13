@@ -38,7 +38,7 @@ Add this to your `Cargo.toml`:
 enum-table = "3.0"
 ```
 
-*Requires Rust 1.85 or later.*
+_Requires Rust 1.85 or later._
 
 ## The `Enumerable` Trait
 
@@ -124,7 +124,7 @@ This is ideal for static lookup tables.
 ```rust
 use enum_table::{EnumTable, Enumerable};
 #[derive(Enumerable, Copy, Clone)]
-#[repr(u8)] 
+#[repr(u8)]
 enum Test {
     A = 100,
     B = 1,
@@ -286,36 +286,36 @@ Licensed under the [MIT license](https://github.com/moriyoshi-kasuga/enum-table/
 
 ```text
 construction/EnumTable::from_fn
-                        time:   [3.7377 ns 3.7418 ns 3.7462 ns]
+                        time:   [3.7364 ns 3.7384 ns 3.7408 ns]
 construction/HashMap (new + insert all)
-                        time:   [72.319 ns 72.352 ns 72.386 ns]
+                        time:   [75.696 ns 75.718 ns 75.744 ns]
 
 single_get/EnumTable::get
-                        time:   [496.33 ps 499.16 ps 502.90 ps]
+                        time:   [477.00 ps 477.33 ps 477.66 ps]
 single_get/EnumTable::get_const
-                        time:   [2.2176 ns 2.2185 ns 2.2196 ns]
-single_get/HashMap::get 
-                        time:   [6.7604 ns 6.7634 ns 6.7673 ns]
+                        time:   [2.2253 ns 2.2265 ns 2.2281 ns]
+single_get/HashMap::get
+                        time:   [6.7835 ns 6.7866 ns 6.7905 ns]
 
 single_set/EnumTable::set
-                        time:   [3.0835 ns 3.0857 ns 3.0880 ns]
+                        time:   [3.1015 ns 3.1114 ns 3.1222 ns]
 single_set/HashMap::insert
-                        time:   [8.1702 ns 8.1880 ns 8.2065 ns]
+                        time:   [9.7141 ns 9.7258 ns 9.7387 ns]
 
 bulk_get_all_variants/EnumTable::get
-                        time:   [2.4252 ns 2.4265 ns 2.4283 ns]
+                        time:   [2.3113 ns 2.3167 ns 2.3231 ns]
 bulk_get_all_variants/HashMap::get
-                        time:   [42.776 ns 42.802 ns 42.832 ns]
+                        time:   [43.538 ns 43.555 ns 43.575 ns]
 
 bulk_set_all_variants/EnumTable::set
-                        time:   [21.622 ns 21.649 ns 21.677 ns]
+                        time:   [21.568 ns 21.627 ns 21.688 ns]
 bulk_set_all_variants/HashMap::insert
-                        time:   [56.734 ns 56.822 ns 56.923 ns]
+                        time:   [56.798 ns 56.849 ns 56.916 ns]
 
 iteration/EnumTable::iter
-                        time:   [587.40 ps 587.96 ps 588.58 ps]
+                        time:   [594.43 ps 595.08 ps 595.83 ps]
 iteration/HashMap::iter
-                        time:   [3.8318 ns 3.8357 ns 3.8405 ns]
+                        time:   [3.8497 ns 3.8513 ns 3.8531 ns]
 ```
 
 </details>
