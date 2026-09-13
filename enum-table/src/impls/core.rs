@@ -1,9 +1,9 @@
 use core::marker::PhantomData;
 use core::ops::{Index, IndexMut};
 
-use crate::{EnumTable, Enumable};
+use crate::{EnumTable, Enumerable};
 
-impl<K: Enumable + core::fmt::Debug, V: core::fmt::Debug, const N: usize> core::fmt::Debug
+impl<K: Enumerable + core::fmt::Debug, V: core::fmt::Debug, const N: usize> core::fmt::Debug
     for EnumTable<K, V, N>
 {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
@@ -11,7 +11,7 @@ impl<K: Enumable + core::fmt::Debug, V: core::fmt::Debug, const N: usize> core::
     }
 }
 
-impl<K: Enumable, V: Clone, const N: usize> Clone for EnumTable<K, V, N> {
+impl<K: Enumerable, V: Clone, const N: usize> Clone for EnumTable<K, V, N> {
     fn clone(&self) -> Self {
         Self {
             table: self.table.clone(),
@@ -20,67 +20,53 @@ impl<K: Enumable, V: Clone, const N: usize> Clone for EnumTable<K, V, N> {
     }
 }
 
-impl<K: Enumable, V: Copy, const N: usize> Copy for EnumTable<K, V, N> {}
+impl<K: Enumerable, V: Copy, const N: usize> Copy for EnumTable<K, V, N> {}
 
-impl<K: Enumable, V: PartialEq, const N: usize> PartialEq for EnumTable<K, V, N> {
+impl<K: Enumerable, V: PartialEq, const N: usize> PartialEq for EnumTable<K, V, N> {
     fn eq(&self, other: &Self) -> bool {
         self.table.eq(&other.table)
     }
 }
 
-impl<K: Enumable, V: Eq, const N: usize> Eq for EnumTable<K, V, N> {}
+impl<K: Enumerable, V: Eq, const N: usize> Eq for EnumTable<K, V, N> {}
 
-impl<K: Enumable, V: core::hash::Hash, const N: usize> core::hash::Hash
-    for EnumTable<K, V, N>
-{
+impl<K: Enumerable, V: core::hash::Hash, const N: usize> core::hash::Hash for EnumTable<K, V, N> {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.table.hash(state);
     }
 }
 
-impl<K: Enumable, V: Default, const N: usize> Default for EnumTable<K, V, N> {
+impl<K: Enumerable, V: Default, const N: usize> Default for EnumTable<K, V, N> {
     fn default() -> Self {
-        Self::new_fill_with_default()
+        Self::new(core::array::from_fn(|_| V::default()))
     }
 }
 
-impl<K: Enumable, V, const N: usize> Index<K> for EnumTable<K, V, N> {
+impl<K: Enumerable, V, const N: usize> Index<K> for EnumTable<K, V, N> {
     type Output = V;
 
     fn index(&self, index: K) -> &Self::Output {
-        self.get(&index)
-    }
-}
-
-impl<K: Enumable, V, const N: usize> IndexMut<K> for EnumTable<K, V, N> {
-    fn index_mut(&mut self, index: K) -> &mut Self::Output {
-        self.get_mut(&index)
-    }
-}
-
-impl<K: Enumable, V, const N: usize> Index<&K> for EnumTable<K, V, N> {
-    type Output = V;
-
-    fn index(&self, index: &K) -> &Self::Output {
         self.get(index)
     }
 }
 
-impl<K: Enumable, V, const N: usize> IndexMut<&K> for EnumTable<K, V, N> {
-    fn index_mut(&mut self, index: &K) -> &mut Self::Output {
+impl<K: Enumerable, V, const N: usize> IndexMut<K> for EnumTable<K, V, N> {
+    fn index_mut(&mut self, index: K) -> &mut Self::Output {
         self.get_mut(index)
     }
 }
 
-impl<K: Enumable, V, const N: usize> AsRef<[V]> for EnumTable<K, V, N> {
-    fn as_ref(&self) -> &[V] {
-        self.as_slice()
+impl<K: Enumerable, V, const N: usize> Index<&K> for EnumTable<K, V, N> {
+    type Output = V;
+
+    fn index(&self, index: &K) -> &Self::Output {
+        self.get(*index)
     }
 }
 
-impl<K: Enumable, V, const N: usize> AsMut<[V]> for EnumTable<K, V, N> {
-    fn as_mut(&mut self) -> &mut [V] {
-        self.as_mut_slice()
+impl<K: Enumerable, V, const N: usize> IndexMut<&K> for EnumTable<K, V, N> {
+    fn index_mut(&mut self, index: &K) -> &mut Self::Output {
+        self.get_mut(*index)
     }
 }
 
@@ -90,7 +76,7 @@ mod tests {
 
     use super::*;
 
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Enumable)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Enumerable)]
     enum Color {
         Red,
         Green,
@@ -122,7 +108,7 @@ mod tests {
     #[test]
     fn eq_impl() {
         assert!(TABLES == ANOTHER_TABLES);
-        assert!(TABLES != EnumTable::new_with_fn(|_| "Unknown"));
+        assert!(TABLES != EnumTable::from_fn(|_| "Unknown"));
     }
 
     #[test]
@@ -141,9 +127,9 @@ mod tests {
     #[test]
     fn default_impl() {
         let default_table: EnumTable<Color, &'static str, { Color::COUNT }> = EnumTable::default();
-        assert_eq!(default_table.get(&Color::Red), &"");
-        assert_eq!(default_table.get(&Color::Green), &"");
-        assert_eq!(default_table.get(&Color::Blue), &"");
+        assert_eq!(default_table.get(Color::Red), &"");
+        assert_eq!(default_table.get(Color::Green), &"");
+        assert_eq!(default_table.get(Color::Blue), &"");
     }
 
     #[test]
@@ -155,19 +141,5 @@ mod tests {
         let mut mutable_table = TABLES;
         mutable_table[Color::Red] = "Changed Red";
         assert_eq!(mutable_table[Color::Red], "Changed Red");
-    }
-
-    #[test]
-    fn as_ref_impl() {
-        let slice: &[&str] = TABLES.as_ref();
-        assert_eq!(slice.len(), 3);
-    }
-
-    #[test]
-    fn as_mut_impl() {
-        let mut table = TABLES;
-        let slice: &mut [&str] = table.as_mut();
-        slice[0] = "Changed";
-        assert_eq!(table.as_slice()[0], "Changed");
     }
 }

@@ -2,13 +2,7 @@ mod iter;
 
 mod core;
 
-#[cfg(feature = "std")]
-mod map;
-
-#[cfg(feature = "alloc")]
-mod vec;
-#[cfg(feature = "alloc")]
-pub use vec::*;
+mod checked_from_pairs;
 
 #[cfg(feature = "serde")]
 mod serde;

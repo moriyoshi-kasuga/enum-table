@@ -12,43 +12,22 @@
 It provides a fast, type-safe, and allocation-free alternative to using `HashMap` for enum keys,
 with compile-time safety and constant-time access (O(1)).
 
-See [CHANGELOG](./CHANGELOG.md) for version history and recent updates.
-
 ## Why use `enum-table`?
 
-`enum-table` provides a specialized, efficient, and safe way to associate data with enum variants.
-Its design is centered around a key guarantee that differentiates it from other data structures.
+`EnumTable<K, V, N>` holds a value for every variant of `K`, so `EnumTable::get`
+returns `&V` directly instead of the `Option<&V>` that `HashMap::get` must return.
+If a value can legitimately be absent, use `EnumTable<K, Option<V>, N>` instead;
+`EnumTable`'s `Default` implementation then fills every slot with `None`.
 
-### Core Guarantee: Completeness
-
-The core design principle of `EnumTable` is that an instance is 
-**guaranteed to hold a value for every variant** of its enum key.
-This type-level invariant enables a cleaner and more efficient API.
-
-For example, the [`get()`] method returns `&V` directly. This is in contrast to `HashMap::get`,
-which must return an `Option<&V>` because a key may or may not be present.
-With `EnumTable`, the presence of all keys is guaranteed,
-eliminating the need for `unwrap()` or other `Option` handling in your code.
-
-If you need to handle cases where a value might not be present,
-you can use `Option<V>` as the value type: `EnumTable<K, Option<V>, N>`.
-This pattern is fully supported and provides a clear, explicit way to manage optional values.
-
-### Comparison with Alternatives
-
-- **vs. `HashMap<MyEnum, V>`**: Beyond the completeness guarantee,
-  `EnumTable` has no heap allocations for its structure, offers better cache locality,
-  and can be created in a `const` context for zero-cost initialization.
-  `HashMap` is more flexible for dynamic data but comes with runtime overhead.
-
-- **vs. `match` statements**: `EnumTable` decouples data from logic.
-  You can pass tables around, modify them at runtime, or load them from configurations.
-  A `match` statement hardcodes the mapping and requires re-compilation to change.
-
-- **vs. arrays (`[V; N]`)**: `EnumTable` works seamlessly with enums that have
-  non-continuous or specified discriminants (e.g., `enum E { A = 1, B = 100 }`).
-  An array-based approach requires manually mapping variants to `0..N` indices,
-  which is error-prone and less flexible.
+- Compared to `HashMap<K, V>`: no heap allocation for the table structure, better cache
+  locality, and constructible in a `const` context. The core has no dependency on
+  `alloc` or `std` at all, so it works in `#![no_std]` environments without a global
+  allocator.
+- Compared to `match` statements: a table is data rather than code, so it can be passed
+  around, mutated at runtime, or loaded from configuration without recompiling.
+- Compared to arrays (`[V; N]`): works with enums whose discriminants are non-contiguous
+  or explicitly assigned (e.g. `enum E { A = 1, B = 100 }`), without manually mapping
+  variants to `0..N` indices.
 
 ## Installation
 
@@ -59,45 +38,49 @@ Add this to your `Cargo.toml`:
 enum-table = "3.0"
 ```
 
-*Requires Rust 1.85 or later.*
+_Requires Rust 1.85 or later._
 
-## The `Enumable` Trait
+## The `Enumerable` Trait
 
-The core of the library is the `Enumable` trait. It provides the necessary
-information about an enum—its variants and their count—to the `EnumTable`.
+`EnumTable`'s key type must implement `Enumerable`, which lists every variant of the enum and gives each one an index:
 
-```rust
-pub trait Enumable: Copy + 'static {
+```rust,ignore
+pub unsafe trait Enumerable: Copy + 'static {
     const VARIANTS: &'static [Self];
     const COUNT: usize = Self::VARIANTS.len();
 
-    /// Returns the index of this variant in the sorted `VARIANTS` array.
-    /// O(1) when derived, O(log N) fallback for manual implementations.
-    fn variant_index(&self) -> usize;
+    fn variant_index(&self) -> usize { .. }
 }
 ```
 
-A critical requirement for this trait is that the `VARIANTS` array **must be sorted** by the enum's discriminant values.
-This ordering is essential for the table's internal logic to function correctly.
+`Enumerable` is an `unsafe trait`: implementors must guarantee that `Self` has no
+padding bytes and that `VARIANTS` lists every variant of `Self` exactly once, sorted
+in ascending order by the unsigned bit-pattern of its in-memory representation. See
+the [`Enumerable` trait documentation][enumerable-docs] for the full safety contract,
+including how signed discriminants sort.
 
-**It is strongly recommended to use the derive macro `#[derive(Enumable)]`**.
-The derive macro automatically generates a correct, sorted `VARIANTS` array and an O(1) `variant_index()` implementation
-using compile-time-computed constants, guaranteeing both correctness and optimal performance.
+Use `#[derive(Enumerable)]` instead of implementing this trait by hand; it generates
+a correct `unsafe impl` with a sorted `VARIANTS` array and a compile-time-computed
+`variant_index()`, without requiring any `unsafe` code from you.
+
+[enumerable-docs]: https://docs.rs/enum-table/latest/enum_table/trait.Enumerable.html
 
 ### Safety and Memory Layout
 
-It is **strongly recommended** to use a primitive representation (e.g., `#[repr(u8)]`) on your enum.
-This ensures that the enum has a stable memory layout without undefined padding bytes.
+`#[derive(Enumerable)]` only supports field-less (C-like) enums, which never
+have padding bytes on their own. A primitive representation (e.g. `#[repr(u8)]`)
+is recommended for a stable, minimal-size layout, but not required for soundness.
 
-**Note on Padding:** If your enum contains padding bytes (for example, by using `#[repr(u8, align(2))]`),
-the library will likely trigger a **compile-time error** during constant evaluation.
-This is because Rust's constant evaluator prevents reading uninitialized memory (padding).
+`#[repr(align(N))]` is the exception: an alignment larger than the discriminant's
+natural size can add trailing padding bytes that this crate's byte-level
+comparisons would read as uninitialized memory, so the derive macro rejects it
+unconditionally at compile time.
 
 ```rust
-use enum_table::Enumable;
+use enum_table::Enumerable;
 
-#[derive(Enumable, Copy, Clone)]
-#[repr(u8)] // <--- Recommended!
+#[derive(Enumerable, Copy, Clone)]
+#[repr(u8)] // <--- Recommended, but not required for soundness.
 enum MyEnum {
     A,
     B,
@@ -109,29 +92,28 @@ enum MyEnum {
 ### Basic Usage
 
 ```rust
-use enum_table::{EnumTable, Enumable};
+use enum_table::{EnumTable, Enumerable};
 
-#[derive(Enumable, Copy, Clone)] // Automatically implements the Enumable trait
-#[repr(u8)] // Recommended: specifies the discriminant size
+#[derive(Enumerable, Copy, Clone)]
+#[repr(u8)]
 enum Test {
     A = 100, // You can specify custom discriminants
     B = 1,
-    C,       // Will be 2 (previous value + 1)
+    C,
 }
 
-// Runtime table creation
-let mut table = EnumTable::<Test, &'static str, { Test::COUNT }>::new_with_fn(
+let mut table = EnumTable::<Test, &'static str, { Test::COUNT }>::from_fn(
   |t| match t {
     Test::A => "A",
     Test::B => "B",
     Test::C => "C",
 });
 
-assert_eq!(table.get(&Test::A), &"A");
+assert_eq!(table.get(Test::A), &"A");
 
-let old_b = table.set(&Test::B, "Changed B");
+let old_b = table.set(Test::B, "Changed B");
 assert_eq!(old_b, "B");
-assert_eq!(table.get(&Test::B), &"Changed B");
+assert_eq!(table.get(Test::B), &"Changed B");
 ```
 
 ### `const` Context and `et!` macro
@@ -140,16 +122,15 @@ You can create `EnumTable` instances at compile time with zero runtime overhead 
 This is ideal for static lookup tables.
 
 ```rust
-use enum_table::{EnumTable, Enumable};
-#[derive(Enumable, Copy, Clone)]
-#[repr(u8)] 
+use enum_table::{EnumTable, Enumerable};
+#[derive(Enumerable, Copy, Clone)]
+#[repr(u8)]
 enum Test {
     A = 100,
     B = 1,
     C
 }
 
-// This table is built at compile time and baked into the binary.
 static TABLE: EnumTable<Test, &'static str, { Test::COUNT }> =
   enum_table::et!(Test, &'static str, |t| match t {
       Test::A => "A",
@@ -157,8 +138,7 @@ static TABLE: EnumTable<Test, &'static str, { Test::COUNT }> =
       Test::C => "C",
   });
 
-// Accessing the value is highly efficient as the table is pre-built.
-const A_VAL: &str = TABLE.get_const(&Test::A);
+const A_VAL: &str = TABLE.get_const(Test::A);
 assert_eq!(A_VAL, "A");
 ```
 
@@ -173,53 +153,47 @@ serde_json = "1.0"
 ```
 
 ```rust
-use enum_table::{EnumTable, Enumable};
+use enum_table::{EnumTable, Enumerable};
 use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Enumable, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Enumerable, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 enum Status {
     Active,
     Inactive,
     Pending,
 }
 
-let table = EnumTable::<Status, &'static str, { Status::COUNT }>::new_with_fn(|status| match status {
+let table = EnumTable::<Status, &'static str, { Status::COUNT }>::from_fn(|status| match status {
     Status::Active => "running",
     Status::Inactive => "stopped",
     Status::Pending => "waiting",
 });
 
-// Serialize to JSON
 let json = serde_json::to_string(&table).unwrap();
 assert_eq!(json, r#"{"Active":"running","Inactive":"stopped","Pending":"waiting"}"#);
 
-// Deserialize from JSON
 let deserialized: EnumTable<Status, &str, { Status::COUNT }> =
     serde_json::from_str(&json).unwrap();
 
 assert_eq!(table, deserialized);
 ```
 
-### Error Handling and Alternative Constructors
+### Error Handling with `try_from_fn`
 
-The library provides several ways to create an `EnumTable`,
-some of which include built-in error handling for fallible initialization logic.
-
-The example below shows `try_new_with_fn`,
-which is useful when each value is generated individually and might fail.
+`try_from_fn` builds a table from a closure that may fail per variant, stopping at
+the first error:
 
 ```rust
-use enum_table::{EnumTable, Enumable};
+use enum_table::{EnumTable, Enumerable};
 
-#[derive(Enumable, Copy, Clone, Debug, PartialEq)]
+#[derive(Enumerable, Copy, Clone, Debug, PartialEq)]
 enum Color {
     Red,
     Green,
     Blue,
 }
 
-// Using try_new_with_fn for fallible initialization
-let result = EnumTable::<Color, &'static str, { Color::COUNT }>::try_new_with_fn(
+let result = EnumTable::<Color, &'static str, { Color::COUNT }>::try_from_fn(
     |color| match color {
         Color::Red => Ok("Red"),
         Color::Green => Err("Failed to get value for Green"),
@@ -227,37 +201,39 @@ let result = EnumTable::<Color, &'static str, { Color::COUNT }>::try_new_with_fn
     }
 );
 
-assert!(result.is_err());
-let (variant, error) = result.unwrap_err();
-assert_eq!(variant, Color::Green);
-assert_eq!(error, "Failed to get value for Green");
+assert_eq!(result, Err("Failed to get value for Green"));
 ```
 
 For other construction methods, such as creating a table from existing data structures,
-please see the **API Overview** section below and the full [API documentation](https://docs.rs/enum-table/latest/enum_table/struct.EnumTable.html).
-For instance, you can use `try_from_vec()` or `try_from_hash_map()` from the **Conversions** API,
-which also handle potential errors like missing variants.
+see the API Overview section below and the full [API documentation](https://docs.rs/enum-table/latest/enum_table/struct.EnumTable.html).
 
 ## API Overview
 
-### Key Methods
+For complete API documentation, visit [EnumTable on doc.rs](https://docs.rs/enum-table/latest/enum_table/struct.EnumTable.html).
 
-- `EnumTable::new_with_fn()`: Create a table by mapping each enum variant to a value.
-- `EnumTable::try_new_with_fn()`: Create a table with error handling support.
-- `EnumTable::checked_new_with_fn()`: Create a table with optional values.
-- `EnumTable::get()`: Access the value for a specific enum variant (O(1)).
-- `EnumTable::get_mut()`: Get mutable access to a value (O(1)).
-- `EnumTable::set()`: Update a value and return the old one (O(1)).
-- `EnumTable::as_slice()`: Access the underlying values as a slice.
-- `EnumTable::into_array()`: Consume the table and get the underlying array.
+### Construction
+
+- `EnumTable::from_fn()`: Create a table by mapping each enum variant to a value.
+- `EnumTable::try_from_fn()`: Create a table from a closure that may fail, stopping at the first error.
+- `EnumTable::checked_from_fn()`: Create a table from a closure that may return `None`, stopping at the first `None`.
+- `EnumTable::checked_from_pairs()`: Create a table from `(K, V)` pairs, or `None` if a variant is missing or duplicated.
+- `EnumTable::from_elem()`: Create a table with the same `Copy` value for every variant.
+- `EnumTable::default()`: Create a table filled with each variant's `Default` value (requires `V: Default`).
+
+### Access
+
+- `get()`, `get_mut()`, `set()`: O(1) access to the value for a variant.
+- `get_const()`, `get_mut_const()`, `set_const()`: `const fn` equivalents, using binary search instead of O(1) lookup.
+- `Index`/`IndexMut` (`table[key]`, accepting `K` or `&K`): shorthand for `get`/`get_mut`.
 
 ### Transformation
 
-- `map()`: Transforms all values in the table.
-- `map_mut()`: Transforms all values in the table in-place.
-- `map_with_key()`: Transforms values using both the key and value.
-- `map_mut_with_key()`: Transforms values in-place using both the key and value.
-- `zip()`: Combines two tables element-wise using a function.
+- `map()`: Transforms all values in the table, given each key and value.
+- `for_each()`: Calls a function with each key and a reference to its value.
+- `for_each_mut()`: Mutates all values in the table in-place, given each key and value.
+- `zip_with()`: Combines two tables element-wise using a function, given each key and both values.
+- `clear()`: Resets every value to its `Default` (requires `V: Default`).
+- `take()`: Replaces a value with its `Default` and returns the old value (requires `V: Default`).
 
 ### Iterators
 
@@ -265,117 +241,82 @@ which also handle potential errors like missing variants.
 - `keys()`: Iterate over keys.
 - `values()`, `values_mut()`: Iterate over values.
 - `into_iter()`: Consume the table and iterate over owned key-value pairs.
-- Implements `Extend<(K, V)>` for updating values from an iterator.
-
-### Conversions
-
-The `EnumTable` can be converted to and from other standard collections.
-
-#### From `EnumTable`
-
-- `into_vec()`: Converts the table into a `Vec<(K, V)>`.
-- `into_hash_map()`: Converts the table into a `HashMap<K, V>`.
-  Requires the enum key to implement `Eq + Hash`.
-- `into_btree_map()`: Converts the table into a `BTreeMap<K, V>`.
-  Requires the enum key to implement `Ord`.
-
-```rust
-use enum_table::{EnumTable, Enumable};
-#[derive(Enumable, Debug, PartialEq, Eq, Hash, Copy, Clone)] enum Color { Red, Green, Blue }
-let table = EnumTable::<Color, &'static str, 3>::new_with_fn(|c| match c {
-    Color::Red => "red", Color::Green => "green", Color::Blue => "blue",
-});
-
-// Example: Convert to a Vec
-let vec = table.into_vec();
-assert_eq!(vec.len(), 3);
-assert!(vec.contains(&(Color::Red, "red")));
-```
-
-#### To `EnumTable`
-
-- `try_from_vec()`: Creates a table from a `Vec<(K, V)>`.
-  Returns an error if any variant is missing or duplicated.
-- `try_from_hash_map()`: Creates a table from a `HashMap<K, V>`.
-  Returns `None` if the map does not contain exactly one entry for each variant.
-- `try_from_btree_map()`: Creates a table from a `BTreeMap<K, V>`.
-  Returns `None` if the map does not contain exactly one entry for each variant.
-
-```rust
-use enum_table::{EnumTable, Enumable};
-use std::collections::HashMap;
-#[derive(Enumable, Debug, PartialEq, Eq, Hash, Copy, Clone)] enum Color { Red, Green, Blue }
-
-// Example: Create from a HashMap
-let mut map = HashMap::new();
-map.insert(Color::Red, 1);
-map.insert(Color::Green, 2);
-map.insert(Color::Blue, 3);
-
-let table = EnumTable::<Color, i32, 3>::try_from_hash_map(map).unwrap();
-assert_eq!(table.get(&Color::Green), &2);
-```
-
-For complete API documentation, visit [EnumTable on doc.rs](https://docs.rs/enum-table/latest/enum_table/struct.EnumTable.html).
+- Implements `Extend<(K, V)>` and `Extend<(&K, &V)>` for updating values from an iterator.
 
 ## Performance
 
-The `enum-table` library is designed for performance:
-
-- **Access Time**: O(1) lookup time at runtime via the derived `variant_index()` method,
-  which uses compile-time-computed constants. The `const fn` variants (`get_const`, etc.)
-  use O(log N) binary search for `const` context compatibility.
-- **Memory Efficiency**: No heap allocations for the table structure, leading to better cache locality.
-- **Compile-Time Optimization**: Static tables can be fully constructed at compile time.
-
-## Feature Flags
-
-- **default**: Enables the `derive` feature by default.
-- **derive**: Enables the `Enumable` derive macro for automatic trait implementation.
-- **serde**: Enables serialization and deserialization support using Serde.
-
-## License
-
-Licensed under the [MIT license](https://github.com/moriyoshi-kasuga/enum-table/blob/main/LICENSE)
+- `#[derive(Enumerable)]` overrides `variant_index()` with a match whose arms resolve
+  to their index at compile time, which tends to compile down to O(1) for enums with
+  dense, sequential discriminants and to a comparison tree for sparse or custom ones —
+  either way faster than the O(log N) binary search used by the default
+  `variant_index()` implementation.
+- The `const fn` variants (`get_const`, etc.) always binary search instead, since
+  `variant_index()` cannot be called from a `const fn`.
+- No heap allocation for the table structure, for better cache locality than `HashMap`.
+- Tables built with the `et!` macro are fully constructed at compile time.
 
 ## Benchmarks
 
-Invoke the benchmarks using `cargo bench` to compare the performance of `EnumTable`
-with a `HashMap` for enum keys. The benchmarks measure the time taken for
-creating a table, getting values, and setting values.
-
-Inputs and outputs are wrapped in `std::hint::black_box` to prevent the compiler
-from constant-folding the lookups. The `get`/`set` benchmarks iterate over all 7
-variants per iteration, so the reported time covers 7 operations (divide by 7 for
-a rough per-operation cost).
+- `construction`: building a fully populated table/map from scratch
+  (`EnumTable::from_fn` vs. `HashMap::new` + inserting every entry).
+- `single_get` / `single_set`: a single lookup/update on one key, measured
+  in isolation (also compares `get` against the `const fn` binary-search
+  `get_const`).
+- `bulk_get_all_variants` / `bulk_set_all_variants`: reading/writing every
+  variant once per iteration, representing a whole-table workload rather than
+  a single operation.
+- `iteration`: iterating over every key-value pair.
 
 <details>
 <summary>Benchmark results</summary>
 
 ```text
-EnumTable::new_with_fn  time:   [3.7279 ns 3.7305 ns 3.7334 ns]
-Found 10 outliers among 100 measurements (10.00%)
-  6 (6.00%) high mild
-  4 (4.00%) high severe
+construction/EnumTable::from_fn
+                        time:   [3.7364 ns 3.7384 ns 3.7408 ns]
+construction/HashMap (new + insert all)
+                        time:   [75.696 ns 75.718 ns 75.744 ns]
 
-EnumTable::get          time:   [1.9207 ns 1.9229 ns 1.9254 ns]
-Found 4 outliers among 100 measurements (4.00%)
-  3 (3.00%) high mild
-  1 (1.00%) high severe
+single_get/EnumTable::get
+                        time:   [477.00 ps 477.33 ps 477.66 ps]
+single_get/EnumTable::get_const
+                        time:   [2.2253 ns 2.2265 ns 2.2281 ns]
+single_get/HashMap::get
+                        time:   [6.7835 ns 6.7866 ns 6.7905 ns]
 
-HashMap::get            time:   [44.039 ns 44.070 ns 44.110 ns]
-Found 7 outliers among 100 measurements (7.00%)
-  4 (4.00%) high mild
-  3 (3.00%) high severe
+single_set/EnumTable::set
+                        time:   [3.1015 ns 3.1114 ns 3.1222 ns]
+single_set/HashMap::insert
+                        time:   [9.7141 ns 9.7258 ns 9.7387 ns]
 
-EnumTable::set          time:   [21.530 ns 21.541 ns 21.554 ns]
-Found 8 outliers among 100 measurements (8.00%)
-  4 (4.00%) high mild
-  4 (4.00%) high severe
+bulk_get_all_variants/EnumTable::get
+                        time:   [2.3113 ns 2.3167 ns 2.3231 ns]
+bulk_get_all_variants/HashMap::get
+                        time:   [43.538 ns 43.555 ns 43.575 ns]
 
-HashMap::insert         time:   [53.874 ns 53.926 ns 53.983 ns]
-Found 2 outliers among 100 measurements (2.00%)
-  2 (2.00%) high mild
+bulk_set_all_variants/EnumTable::set
+                        time:   [21.568 ns 21.627 ns 21.688 ns]
+bulk_set_all_variants/HashMap::insert
+                        time:   [56.798 ns 56.849 ns 56.916 ns]
+
+iteration/EnumTable::iter
+                        time:   [594.43 ps 595.08 ps 595.83 ps]
+iteration/HashMap::iter
+                        time:   [3.8497 ns 3.8513 ns 3.8531 ns]
 ```
 
 </details>
+
+## Feature Flags
+
+- `default`: Enables `std` and `derive`.
+- `derive`: Enables the `#[derive(Enumerable)]` macro.
+- `serde`: Enables `Serialize`/`Deserialize` for `EnumTable`. Implies `alloc`.
+- `std`: Builds against `std` instead of `#![no_std]`. Implies `alloc`.
+- `alloc`: Links `alloc`, required by `serde`.
+
+Disabling all of the above (`default-features = false`) builds `enum-table` as `#![no_std]`
+with no heap-allocation dependency, retaining the core `EnumTable`/`Enumerable` API.
+
+## License
+
+Licensed under the [MIT license](https://github.com/moriyoshi-kasuga/enum-table/blob/main/LICENSE)

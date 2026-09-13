@@ -1,11 +1,11 @@
 extern crate alloc;
 
-use crate::{EnumTable, Enumable};
+use crate::{EnumTable, Enumerable};
 use alloc::format;
 
 impl<K, V, const N: usize> serde::Serialize for EnumTable<K, V, N>
 where
-    K: Enumable + serde::Serialize,
+    K: Enumerable + serde::Serialize,
     V: serde::Serialize,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -23,7 +23,7 @@ where
 
 impl<'de, K, V, const N: usize> serde::Deserialize<'de> for EnumTable<K, V, N>
 where
-    K: Enumable + serde::Deserialize<'de> + core::fmt::Debug,
+    K: Enumerable + serde::Deserialize<'de> + core::fmt::Debug,
     V: serde::Deserialize<'de>,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -39,7 +39,7 @@ where
 
         impl<'de, K, V, const N: usize> Visitor<'de> for EnumTableVisitor<K, V, N>
         where
-            K: Enumable + serde::Deserialize<'de> + core::fmt::Debug,
+            K: Enumerable + serde::Deserialize<'de> + core::fmt::Debug,
             V: serde::Deserialize<'de>,
         {
             type Value = EnumTable<K, V, N>;
@@ -56,8 +56,14 @@ where
                 let mut count = 0;
 
                 while let Some((key, value)) = map.next_entry::<K, V>()? {
-                    slots[key.variant_index()] = Some(value);
                     count += 1;
+                    if count > N {
+                        return Err(serde::de::Error::invalid_length(
+                            count,
+                            &format!("expected {N} entries").as_str(),
+                        ));
+                    }
+                    slots[key.variant_index()] = Some(value);
                 }
 
                 if count != N {
@@ -69,17 +75,14 @@ where
 
                 let table = crate::intrinsics::try_collect_array(|i| {
                     slots[i].take().ok_or_else(|| {
-                        serde::de::Error::invalid_value(
-                            serde::de::Unexpected::Str(&format!("{:?}", K::VARIANTS[i])),
-                            &"all enum variants must be present",
-                        )
+                        serde::de::Error::custom(format_args!(
+                            "missing entry for variant {:?}",
+                            K::VARIANTS[i]
+                        ))
                     })
                 });
 
-                match table {
-                    Ok(arr) => Ok(EnumTable::new(arr)),
-                    Err(e) => Err(e),
-                }
+                table.map(EnumTable::new)
             }
         }
 
@@ -93,7 +96,7 @@ where
 mod tests {
     use super::*;
 
-    #[derive(Debug, Clone, Copy, Enumable, serde::Serialize, serde::Deserialize)]
+    #[derive(Debug, Clone, Copy, Enumerable, serde::Serialize, serde::Deserialize)]
     enum Color {
         Red,
         Green,
@@ -120,9 +123,9 @@ mod tests {
         let json = r#"{"Red":"Red","Green":"Green","Blue":"Blue"}"#;
         let table: EnumTable<Color, &str, { Color::COUNT }> = serde_json::from_str(json).unwrap();
 
-        assert_eq!(table.get(&Color::Red), &"Red");
-        assert_eq!(table.get(&Color::Green), &"Green");
-        assert_eq!(table.get(&Color::Blue), &"Blue");
+        assert_eq!(table.get(Color::Red), &"Red");
+        assert_eq!(table.get(Color::Green), &"Green");
+        assert_eq!(table.get(Color::Blue), &"Blue");
     }
 
     #[test]

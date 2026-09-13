@@ -1,0 +1,5 @@
+error: Enumerable can only be derived for enums
+ --> tests/compile_fail/not_an_enum.rs:4:1
+  |
+4 | struct NotAnEnum;
+  | ^^^^^^^^^^^^^^^^^

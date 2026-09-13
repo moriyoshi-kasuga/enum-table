@@ -1,6 +1,6 @@
-use enum_table::{EnumTable, Enumable};
+use enum_table::{EnumTable, Enumerable};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Enumable)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Enumerable)]
 #[repr(u8)]
 pub enum Test {
     A = 100,
@@ -12,22 +12,22 @@ pub enum Test {
 fn test() {
     assert_eq!(Test::VARIANTS, &[Test::B, Test::C, Test::A]);
 
-    let mut table = EnumTable::<Test, &'static str, { Test::COUNT }>::new_with_fn(|t| match t {
+    let mut table = EnumTable::<Test, &'static str, { Test::COUNT }>::from_fn(|t| match t {
         Test::A => "A",
         Test::B => "B",
         Test::C => "C",
     });
 
-    assert_eq!(table.get(&Test::A), &"A");
-    assert_eq!(table.get(&Test::B), &"B");
-    assert_eq!(table.get(&Test::C), &"C");
-    assert_eq!(table.get_mut(&Test::A), &mut "A");
+    assert_eq!(table.get(Test::A), &"A");
+    assert_eq!(table.get(Test::B), &"B");
+    assert_eq!(table.get(Test::C), &"C");
+    assert_eq!(table.get_mut(Test::A), &mut "A");
 
-    *table.get_mut(&Test::A) = "AA";
+    *table.get_mut(Test::A) = "AA";
 
-    assert_eq!(table.get(&Test::A), &"AA");
+    assert_eq!(table.get(Test::A), &"AA");
 
-    table.set(&Test::A, "AAA");
+    table.set(Test::A, "AAA");
 
-    assert_eq!(table.get(&Test::A), &"AAA");
+    assert_eq!(table.get(Test::A), &"AAA");
 }

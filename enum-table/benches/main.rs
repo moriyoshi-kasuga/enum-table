@@ -1,9 +1,9 @@
 use std::{collections::HashMap, hash::Hash, hint::black_box};
 
 use criterion::{Criterion, criterion_group, criterion_main};
-use enum_table::{EnumTable, Enumable};
+use enum_table::{EnumTable, Enumerable};
 
-#[derive(Clone, Copy, Enumable, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Enumerable, Eq, PartialEq, Hash)]
 enum Letter {
     A,
     B,
@@ -14,8 +14,10 @@ enum Letter {
     G,
 }
 
-fn new() -> EnumTable<Letter, &'static str, { Letter::COUNT }> {
-    EnumTable::new_with_fn(|letter| match letter {
+const LEN: usize = Letter::COUNT;
+
+fn value_for(letter: Letter) -> &'static str {
+    match letter {
         Letter::A => "Alpha",
         Letter::B => "Bravo",
         Letter::C => "Charlie",
@@ -23,78 +25,146 @@ fn new() -> EnumTable<Letter, &'static str, { Letter::COUNT }> {
         Letter::E => "Echo",
         Letter::F => "Foxtrot",
         Letter::G => "Golf",
-    })
+    }
+}
+
+fn new_table() -> EnumTable<Letter, &'static str, LEN> {
+    EnumTable::from_fn(value_for)
 }
 
 fn new_hash_map() -> HashMap<Letter, &'static str> {
-    let mut map = HashMap::new();
-    map.insert(Letter::A, "Alpha");
-    map.insert(Letter::B, "Bravo");
-    map.insert(Letter::C, "Charlie");
-    map.insert(Letter::D, "Delta");
-    map.insert(Letter::E, "Echo");
-    map.insert(Letter::F, "Foxtrot");
-    map.insert(Letter::G, "Golf");
-    map
+    Letter::VARIANTS
+        .iter()
+        .map(|l| (*l, value_for(*l)))
+        .collect()
 }
 
-fn enum_table_new_with_fn(criterion: &mut Criterion) {
-    criterion.bench_function("EnumTable::new_with_fn", |bencher| {
-        bencher.iter(|| black_box(new()))
+/// Building a fully populated table/map from scratch.
+fn construction(c: &mut Criterion) {
+    let mut group = c.benchmark_group("construction");
+    group.bench_function("EnumTable::from_fn", |b| b.iter(|| black_box(new_table())));
+    group.bench_function("HashMap (new + insert all)", |b| {
+        b.iter(|| black_box(new_hash_map()))
     });
+    group.finish();
 }
 
-fn enum_table_get(criterion: &mut Criterion) {
-    let table = new();
-    criterion.bench_function("EnumTable::get", |bencher| {
-        bencher.iter(|| {
-            for letter in Letter::VARIANTS {
-                black_box(black_box(&table).get(black_box(letter)));
-            }
-        })
-    });
-}
-
-fn hash_map_get(criterion: &mut Criterion) {
+/// A single get, on one key, in isolation.
+fn single_get(c: &mut Criterion) {
+    let table = new_table();
     let map = new_hash_map();
 
-    criterion.bench_function("HashMap::get", |bencher| {
-        bencher.iter(|| {
-            for letter in Letter::VARIANTS {
-                black_box(black_box(&map).get(black_box(letter)));
+    let mut group = c.benchmark_group("single_get");
+    group.bench_function("EnumTable::get", |b| {
+        b.iter(|| black_box(*black_box(&table).get(black_box(Letter::D))))
+    });
+    group.bench_function("EnumTable::get_const", |b| {
+        b.iter(|| black_box(*black_box(&table).get_const(black_box(Letter::D))))
+    });
+    group.bench_function("HashMap::get", |b| {
+        b.iter(|| {
+            if let Some(v) = black_box(&map).get(black_box(&Letter::D)) {
+                black_box(*v);
             }
         })
     });
+    group.finish();
 }
 
-fn enum_table_set(criterion: &mut Criterion) {
-    let mut table = new();
-    criterion.bench_function("EnumTable::set", |bencher| {
-        bencher.iter(|| {
-            for letter in Letter::VARIANTS {
-                black_box(table.set(black_box(letter), black_box("Updated")));
-            }
-        })
-    });
-}
-
-fn hash_map_set(criterion: &mut Criterion) {
+/// A single set/insert, on one key, in isolation.
+fn single_set(c: &mut Criterion) {
+    let mut table = new_table();
     let mut map = new_hash_map();
-    criterion.bench_function("HashMap::insert", |bencher| {
-        bencher.iter(|| {
+
+    let mut group = c.benchmark_group("single_set");
+    group.bench_function("EnumTable::set", |b| {
+        b.iter(|| black_box(table.set(black_box(Letter::D), black_box("Updated"))))
+    });
+    group.bench_function("HashMap::insert", |b| {
+        b.iter(|| black_box(map.insert(black_box(Letter::D), black_box("Updated"))))
+    });
+    group.finish();
+}
+
+/// Reading every variant once per iteration: a whole-table workload rather
+/// than a single lookup.
+fn bulk_get_all_variants(c: &mut Criterion) {
+    let table = new_table();
+    let map = new_hash_map();
+
+    let mut group = c.benchmark_group("bulk_get_all_variants");
+    group.bench_function("EnumTable::get", |b| {
+        b.iter(|| {
+            for letter in Letter::VARIANTS {
+                black_box(*black_box(&table).get(black_box(*letter)));
+            }
+        })
+    });
+    group.bench_function("HashMap::get", |b| {
+        b.iter(|| {
+            for letter in Letter::VARIANTS {
+                if let Some(v) = black_box(&map).get(black_box(letter)) {
+                    black_box(*v);
+                }
+            }
+        })
+    });
+    group.finish();
+}
+
+/// Writing every variant once per iteration: a whole-table workload rather
+/// than a single update.
+fn bulk_set_all_variants(c: &mut Criterion) {
+    let mut table = new_table();
+    let mut map = new_hash_map();
+
+    let mut group = c.benchmark_group("bulk_set_all_variants");
+    group.bench_function("EnumTable::set", |b| {
+        b.iter(|| {
+            for letter in Letter::VARIANTS {
+                black_box(table.set(black_box(*letter), black_box("Updated")));
+            }
+        })
+    });
+    group.bench_function("HashMap::insert", |b| {
+        b.iter(|| {
             for letter in Letter::VARIANTS {
                 black_box(map.insert(black_box(*letter), black_box("Updated")));
             }
         })
     });
+    group.finish();
+}
+
+/// Iterating over every key-value pair and summing the value lengths.
+fn iteration(c: &mut Criterion) {
+    let table = new_table();
+    let map = new_hash_map();
+
+    let mut group = c.benchmark_group("iteration");
+    group.bench_function("EnumTable::iter", |b| {
+        b.iter(|| {
+            black_box(
+                black_box(&table)
+                    .iter()
+                    .map(|(_, v)| v.len())
+                    .sum::<usize>(),
+            )
+        })
+    });
+    group.bench_function("HashMap::iter", |b| {
+        b.iter(|| black_box(map.values().map(|v| v.len()).sum::<usize>()))
+    });
+    group.finish();
 }
 
 criterion_group!(
     benches,
-    enum_table_new_with_fn,
-    enum_table_get,
-    hash_map_get,
-    enum_table_set,
-    hash_map_set,
+    construction,
+    single_get,
+    single_set,
+    bulk_get_all_variants,
+    bulk_set_all_variants,
+    iteration,
 );
 criterion_main!(benches);

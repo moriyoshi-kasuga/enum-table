@@ -1,27 +1,20 @@
-/// A macro to create an `EnumTable` for a given enumeration and value type.
+/// Builds an `EnumTable` for `$variant` and `$value` inside a `const` block.
 ///
-/// # Arguments
+/// The closure body must be valid in a `const` context; passing a non-`const`
+/// expression is a compile error. For a runtime equivalent, use
+/// [`crate::EnumTable::from_fn`], [`crate::EnumTable::try_from_fn`], or
+/// [`crate::EnumTable::checked_from_fn`] instead.
 ///
-/// * `$variant` - The enumeration type that implements the `Enumable` trait.
-/// * `$value` - The type of values to be associated with each enumeration variant.
-/// * `$count` - The number of variants in the enumeration.
-/// * `$variable` - The variable name to use in the closure for each variant.
-/// * `$($tt:tt)*` - The closure that maps each variant to a value.
-///
-/// # Example
+/// # Examples
 ///
 /// ```rust
-/// use enum_table::{EnumTable, Enumable, et};
+/// use enum_table::{EnumTable, Enumerable, et};
 ///
-/// #[derive(Copy, Clone)]
+/// #[derive(Enumerable, Copy, Clone)]
 /// enum Test {
 ///     A,
 ///     B,
 ///     C,
-/// }
-///
-/// impl enum_table::Enumable for Test {
-///     const VARIANTS: &'static [Self] = &[Test::A, Test::B, Test::C];
 /// }
 ///
 /// const TABLE: EnumTable<Test, &'static str, { Test::COUNT }> =
@@ -31,56 +24,31 @@
 ///         Test::C => "C",
 ///     });
 ///
-/// assert_eq!(TABLE.get(&Test::A), &"A");
-/// assert_eq!(TABLE.get(&Test::B), &"B");
-/// assert_eq!(TABLE.get(&Test::C), &"C");
-///
+/// assert_eq!(TABLE.get(Test::A), &"A");
+/// assert_eq!(TABLE.get(Test::B), &"B");
+/// assert_eq!(TABLE.get(Test::C), &"C");
+/// ```
 #[macro_export]
 macro_rules! et {
-    ($variant:ty, $value:ty, $COUNT:block, |$variable:ident| $($tt:tt)*) => {
-        {
-            let mut builder = $crate::builder::EnumTableBuilder::<$variant, $value, $COUNT>::new();
+    ($variant:ty, $value:ty, |$variable:ident| $($tt:tt)*) => {
+        const {
+            let mut builder = $crate::__private::EnumTableBuilder::<
+                $variant,
+                $value,
+                { <$variant as $crate::Enumerable>::COUNT },
+            >::new_uninit();
 
             let mut i = 0;
-            while i < builder.capacity() {
-                let $variable = &<$variant as $crate::Enumable>::VARIANTS[i];
+            while i < <$variant as $crate::Enumerable>::COUNT  {
+                let $variable = &<$variant as $crate::Enumerable>::VARIANTS[i];
                 let value = $($tt)*;
                 unsafe {
-                    builder.push_unchecked($variable, value);
+                    builder.push_unchecked(i, value);
                 }
                 i += 1;
             }
 
-            unsafe { builder.build_to_unchecked() }
+            unsafe { builder.build_unchecked() }
         }
     };
-    ($variant:ty, $value:ty, |$variable:ident| $($tt:tt)*) => {
-        $crate::et!($variant, $value, { <$variant as $crate::Enumable>::COUNT }, |$variable| $($tt)*)
-    };
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{EnumTable, Enumable};
-
-    #[test]
-    fn et_macro() {
-        #[derive(Clone, Copy, Enumable)]
-        enum Test {
-            A,
-            B,
-            C,
-        }
-
-        const TABLE: EnumTable<Test, &'static str, { Test::COUNT }> =
-            et!(Test, &'static str, |t| match t {
-                Test::A => "A",
-                Test::B => "B",
-                Test::C => "C",
-            });
-
-        assert_eq!(TABLE.get(&Test::A), &"A");
-        assert_eq!(TABLE.get(&Test::B), &"B");
-        assert_eq!(TABLE.get(&Test::C), &"C");
-    }
 }
