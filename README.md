@@ -17,7 +17,7 @@ with compile-time safety and constant-time access (O(1)).
 `EnumTable<K, V, N>` holds a value for every variant of `K`, so `EnumTable::get`
 returns `&V` directly instead of the `Option<&V>` that `HashMap::get` must return.
 If a value can legitimately be absent, use `EnumTable<K, Option<V>, N>` instead;
-see `EnumTable`'s `Default` implementation.
+`EnumTable`'s `Default` implementation then fills every slot with `None`.
 
 - Compared to `HashMap<K, V>`: no heap allocation for the table structure, better cache
   locality, and constructible in a `const` context. The core has no dependency on
@@ -178,7 +178,7 @@ let deserialized: EnumTable<Status, &str, { Status::COUNT }> =
 assert_eq!(table, deserialized);
 ```
 
-### Error Handling and Alternative Constructors
+### Error Handling with `try_from_fn`
 
 `try_from_fn` builds a table from a closure that may fail per variant, stopping at
 the first error:
@@ -249,25 +249,11 @@ For complete API documentation, visit [EnumTable on doc.rs](https://docs.rs/enum
   to their index at compile time, which tends to compile down to O(1) for enums with
   dense, sequential discriminants and to a comparison tree for sparse or custom ones —
   either way faster than the O(log N) binary search used by the default
-  `variant_index()` implementation and by the `const fn` variants (`get_const`, etc.),
-  which binary search because `variant_index()` cannot be called from a `const fn`.
+  `variant_index()` implementation.
+- The `const fn` variants (`get_const`, etc.) always binary search instead, since
+  `variant_index()` cannot be called from a `const fn`.
 - No heap allocation for the table structure, for better cache locality than `HashMap`.
 - Tables built with the `et!` macro are fully constructed at compile time.
-
-## Feature Flags
-
-- `default`: Enables `std` and `derive`.
-- `derive`: Enables the `#[derive(Enumerable)]` macro.
-- `serde`: Enables `Serialize`/`Deserialize` for `EnumTable`. Implies `alloc`.
-- `std`: Builds against `std` instead of `#![no_std]`. Implies `alloc`.
-- `alloc`: Links `alloc`, required by `serde`.
-
-Disabling all of the above (`default-features = false`) builds `enum-table` as `#![no_std]`
-with no heap-allocation dependency, retaining the core `EnumTable`/`Enumerable` API.
-
-## License
-
-Licensed under the [MIT license](https://github.com/moriyoshi-kasuga/enum-table/blob/main/LICENSE)
 
 ## Benchmarks
 
@@ -319,3 +305,18 @@ iteration/HashMap::iter
 ```
 
 </details>
+
+## Feature Flags
+
+- `default`: Enables `std` and `derive`.
+- `derive`: Enables the `#[derive(Enumerable)]` macro.
+- `serde`: Enables `Serialize`/`Deserialize` for `EnumTable`. Implies `alloc`.
+- `std`: Builds against `std` instead of `#![no_std]`. Implies `alloc`.
+- `alloc`: Links `alloc`, required by `serde`.
+
+Disabling all of the above (`default-features = false`) builds `enum-table` as `#![no_std]`
+with no heap-allocation dependency, retaining the core `EnumTable`/`Enumerable` API.
+
+## License
+
+Licensed under the [MIT license](https://github.com/moriyoshi-kasuga/enum-table/blob/main/LICENSE)
